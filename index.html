@@ -1,0 +1,2347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#f5f5f7" id="themeColor">
+<title>SignBridge — Perioperative ASL Communication</title>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.min.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1675466862/camera_utils.min.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils@0.3.1675466124/drawing_utils.min.js" crossorigin="anonymous"></script>
+<link rel="manifest" href="data:application/json;base64,eyJuYW1lIjoiU2lnbkJyaWRnZSIsInNob3J0X25hbWUiOiJTaWduQnJpZGdlIiwic3RhcnRfdXJsIjoiLiIsImRpc3BsYXkiOiJzdGFuZGFsb25lIiwiYmFja2dyb3VuZF9jb2xvciI6IiNmNWY1ZjciLCJ0aGVtZV9jb2xvciI6IiMwMDcxZTMifQ==">
+<style>
+  /* ===== RESET & BASE ===== */
+  *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+  :root {
+    --blue: #007AFF; --blue-light: #E8F2FF;
+    --green: #34C759; --green-light: #E8F8ED;
+    --orange: #FF9500; --orange-light: #FFF3E0;
+    --red: #FF3B30; --red-light: #FFEBEE;
+    --purple: #AF52DE; --purple-light: #F3E8FF;
+    --teal: #5AC8FA; --teal-light: #E6F7FF;
+    --pink: #FF2D55; --pink-light: #FFE8EE;
+    --bg: #F2F2F7; --card: #FFFFFF;
+    --text-primary: #1D1D1F; --text-secondary: #86868B; --text-tertiary: #AEAEB2;
+    --border: rgba(0,0,0,0.06);
+    --shadow-sm: 0 1px 3px rgba(0,0,0,0.04);
+    --shadow-md: 0 4px 12px rgba(0,0,0,0.06);
+    --shadow-lg: 0 8px 30px rgba(0,0,0,0.08);
+    --radius-sm: 10px; --radius-md: 14px; --radius-lg: 20px; --radius-xl: 28px;
+    --safe-top: env(safe-area-inset-top, 20px);
+    --safe-bottom: env(safe-area-inset-bottom, 20px);
+    --nav-height: 64px; --tab-height: 80px;
+    --transition-theme: background 0.4s ease, color 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease;
+  }
+
+  /* ===== DARK MODE ===== */
+  [data-theme="dark"] {
+    --bg: #1C1C1E; --card: #2C2C2E;
+    --text-primary: #F5F5F7; --text-secondary: #98989D; --text-tertiary: #636366;
+    --border: rgba(255,255,255,0.08);
+    --shadow-sm: 0 1px 3px rgba(0,0,0,0.2);
+    --shadow-md: 0 4px 12px rgba(0,0,0,0.25);
+    --shadow-lg: 0 8px 30px rgba(0,0,0,0.35);
+    --blue-light: rgba(0,122,255,0.15); --green-light: rgba(52,199,89,0.15);
+    --orange-light: rgba(255,149,0,0.15); --red-light: rgba(255,59,48,0.15);
+    --purple-light: rgba(175,82,222,0.15); --teal-light: rgba(90,200,250,0.15);
+    --pink-light: rgba(255,45,85,0.15);
+  }
+  [data-theme="dark"] .top-nav { background: rgba(28,28,30,0.85); }
+  [data-theme="dark"] .tab-bar { background: rgba(28,28,30,0.9); }
+  [data-theme="dark"] .search-bar { background: rgba(255,255,255,0.08); }
+  [data-theme="dark"] .cmd-btn { background: var(--card); border-color: var(--border); }
+  [data-theme="dark"] .pill { background: var(--card); border-color: var(--border); color: var(--text-secondary); }
+  [data-theme="dark"] .qa-icon { filter: brightness(0.7); }
+  [data-theme="dark"] body { background: #000; }
+  [data-theme="dark"] .voice-card { background: var(--card); }
+
+  html {
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    background: var(--bg); color: var(--text-primary);
+    -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
+    overflow: hidden; height: 100%;
+  }
+  body { height: 100%; overflow: hidden; position: relative; transition: var(--transition-theme); }
+
+  /* ===== APP SHELL ===== */
+  .app {
+    display: flex; flex-direction: column; height: 100%;
+    max-width: 430px; margin: 0 auto; background: var(--bg); position: relative;
+  }
+  @media (min-width: 431px) {
+    body { background: #e5e5ea; display: flex; justify-content: center; align-items: center; }
+    .app {
+      height: 90vh; max-height: 900px; border-radius: 40px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.15); overflow: hidden;
+    }
+  }
+
+  /* ===== TOP NAV ===== */
+  .top-nav {
+    padding: calc(var(--safe-top) + 8px) 20px 12px;
+    background: rgba(242,242,247,0.85);
+    backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+    position: sticky; top: 0; z-index: 100;
+    border-bottom: 0.5px solid var(--border);
+  }
+  .top-nav h1 {
+    font-size: 28px; font-weight: 700; letter-spacing: -0.5px;
+    background: linear-gradient(135deg, var(--blue), var(--purple));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+  }
+  .top-nav .subtitle { font-size: 13px; color: var(--text-secondary); margin-top: 2px; font-weight: 500; }
+  .status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
+  .status-dot.active { background: var(--green); box-shadow: 0 0 6px rgba(52,199,89,0.5); }
+
+  /* ===== SCREEN CONTAINER ===== */
+  .screen-container { flex: 1; overflow: hidden; position: relative; }
+  .screen {
+    position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+    overflow-y: auto; overflow-x: hidden;
+    padding: 16px 16px calc(var(--tab-height) + var(--safe-bottom) + 16px);
+    -webkit-overflow-scrolling: touch;
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.25s ease, transform 0.25s ease;
+    transform: translateY(8px);
+  }
+  .screen.active { opacity: 1; pointer-events: auto; transform: translateY(0); }
+
+  /* ===== BOTTOM TAB BAR ===== */
+  .tab-bar {
+    display: flex; padding: 8px 0 calc(var(--safe-bottom) + 4px);
+    background: rgba(255,255,255,0.85);
+    backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+    border-top: 0.5px solid var(--border);
+    position: absolute; bottom: 0; left: 0; right: 0; z-index: 100;
+  }
+  .tab-item {
+    flex: 1; display: flex; flex-direction: column; align-items: center;
+    gap: 4px; padding: 6px 0; cursor: pointer;
+    -webkit-tap-highlight-color: transparent; transition: transform 0.15s ease;
+  }
+  .tab-item:active { transform: scale(0.9); }
+  .tab-item svg { width: 24px; height: 24px; fill: none; stroke: var(--text-tertiary); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .tab-item span { font-size: 10px; font-weight: 600; color: var(--text-tertiary); }
+  .tab-item.active svg { stroke: var(--blue); }
+  .tab-item.active span { color: var(--blue); }
+
+  /* ===== SHARED ===== */
+  .section-label { font-size: 13px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.8px; margin: 20px 4px 10px; }
+  .section-label:first-child { margin-top: 4px; }
+  .card {
+    background: var(--card); border-radius: var(--radius-md);
+    padding: 16px; margin-bottom: 10px;
+    box-shadow: var(--shadow-sm); border: 0.5px solid var(--border);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .card:active { transform: scale(0.98); box-shadow: var(--shadow-md); }
+
+  /* ===== CATEGORY PILLS ===== */
+  .pill-row {
+    display: flex; gap: 8px; overflow-x: auto; padding: 4px 0 12px;
+    -webkit-overflow-scrolling: touch; scrollbar-width: none;
+  }
+  .pill-row::-webkit-scrollbar { display: none; }
+  .pill {
+    flex-shrink: 0; padding: 8px 16px; border-radius: 100px;
+    font-size: 13px; font-weight: 600; cursor: pointer;
+    background: var(--card); color: var(--text-secondary);
+    border: 1.5px solid var(--border); transition: all 0.2s ease;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .pill:active { transform: scale(0.95); }
+  .pill.active { background: var(--blue); color: white; border-color: var(--blue); box-shadow: 0 2px 8px rgba(0,122,255,0.3); }
+
+  /* ===== COMMAND BUTTONS ===== */
+  .cmd-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .cmd-btn {
+    background: var(--card); border: 1.5px solid var(--border);
+    border-radius: var(--radius-md); padding: 14px 12px;
+    font-size: 14px; font-weight: 500; color: var(--text-primary);
+    text-align: center; cursor: pointer; transition: all 0.15s ease; line-height: 1.3;
+    -webkit-tap-highlight-color: transparent;
+    display: flex; align-items: center; justify-content: center;
+    min-height: 56px; position: relative;
+  }
+  .cmd-btn:active { transform: scale(0.96); }
+  .cmd-btn .cmd-icon {
+    position: absolute; top: 6px; right: 8px;
+    font-size: 12px; opacity: 0.5;
+  }
+  .cmd-btn.signing {
+    background: var(--blue-light); border-color: var(--blue);
+    color: var(--blue); box-shadow: 0 0 0 3px rgba(0,122,255,0.15);
+  }
+
+  /* ===== SEARCH BAR ===== */
+  .search-bar {
+    background: rgba(142,142,147,0.12); border-radius: var(--radius-sm);
+    padding: 10px 14px; display: flex; align-items: center; gap: 8px; margin-bottom: 12px;
+  }
+  .search-bar svg { width: 18px; height: 18px; stroke: var(--text-tertiary); fill: none; stroke-width: 2; flex-shrink: 0; }
+  .search-bar input {
+    flex: 1; background: none; border: none; outline: none;
+    font-size: 15px; font-family: inherit; color: var(--text-primary);
+  }
+  .search-bar input::placeholder { color: var(--text-tertiary); }
+
+  /* ===== ASL VIDEO OVERLAY (Full-screen patient-facing) ===== */
+  .asl-overlay {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: #000; z-index: 9999;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.35s ease;
+  }
+  .asl-overlay.active { opacity: 1; pointer-events: auto; }
+  .asl-overlay .close-btn {
+    position: absolute; top: max(env(safe-area-inset-top, 16px), 16px); right: 16px;
+    width: 36px; height: 36px; border-radius: 50%;
+    background: rgba(255,255,255,0.15); border: none;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; z-index: 10; backdrop-filter: blur(10px);
+  }
+  .asl-overlay .close-btn svg { width: 20px; height: 20px; stroke: white; fill: none; stroke-width: 2.5; stroke-linecap: round; }
+  .asl-overlay .provider-badge {
+    position: absolute; top: max(env(safe-area-inset-top, 16px), 16px); left: 16px;
+    background: rgba(255,255,255,0.1); backdrop-filter: blur(10px);
+    padding: 6px 14px; border-radius: 100px;
+    font-size: 12px; color: rgba(255,255,255,0.7); font-weight: 600;
+    letter-spacing: 0.5px;
+  }
+  .asl-signing-area {
+    width: 100%; max-width: 400px; aspect-ratio: 1/1;
+    display: flex; align-items: center; justify-content: center;
+    position: relative;
+  }
+  .asl-avatar {
+    width: 260px; height: 320px; position: relative;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .humanoid-figure {
+    width: 100%; height: 100%;
+  }
+  .humanoid-figure .body-fill {
+    fill: rgba(255,255,255,0.08);
+  }
+  .humanoid-figure .body-stroke {
+    fill: none; stroke: rgba(255,255,255,0.7); stroke-width: 2.5;
+    stroke-linecap: round; stroke-linejoin: round;
+  }
+  .humanoid-figure .body-glow {
+    fill: none; stroke: url(#armGlow); stroke-width: 3;
+    stroke-linecap: round; stroke-linejoin: round;
+    filter: drop-shadow(0 0 8px rgba(0,122,255,0.4));
+  }
+  .humanoid-figure .hand-circle {
+    filter: drop-shadow(0 0 12px rgba(0,122,255,0.5));
+    transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .humanoid-figure .phantom-hand {
+    transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    transform-origin: center center;
+  }
+  .humanoid-figure .phantom-hand line {
+    transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .humanoid-figure .head-shape {
+    fill: rgba(255,255,255,0.06); stroke: rgba(255,255,255,0.5); stroke-width: 2.5;
+  }
+  /* Arm segments transition smoothly */
+  .humanoid-figure .arm-segment {
+    transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  @keyframes handGlow {
+    0%,100% { filter: drop-shadow(0 0 10px rgba(0,122,255,0.4)); }
+    50% { filter: drop-shadow(0 0 22px rgba(175,82,222,0.7)); }
+  }
+  @keyframes fingerWiggle {
+    0%, 100% { transform: rotate(0deg); }
+    25% { transform: rotate(8deg); }
+    75% { transform: rotate(-8deg); }
+  }
+  .humanoid-figure .hand-circle.animating {
+    animation: handGlow 1.2s ease-in-out infinite;
+  }
+  .humanoid-figure .phantom-hand.animating {
+    animation: fingerWiggle 0.8s ease-in-out infinite;
+  }
+  /* Demo version badge on overlay */
+  .demo-version-badge {
+    position: absolute; bottom: 8px; right: 12px;
+    font-size: 10px; font-weight: 600; color: rgba(255,255,255,0.35);
+    letter-spacing: 0.5px; text-transform: uppercase;
+  }
+  .asl-phrase-text {
+    color: white; font-size: 28px; font-weight: 700;
+    text-align: center; margin-top: 32px; padding: 0 24px;
+    letter-spacing: -0.3px; line-height: 1.3;
+  }
+  .asl-subtitle {
+    color: rgba(255,255,255,0.5); font-size: 14px; font-weight: 500;
+    margin-top: 8px; text-transform: uppercase; letter-spacing: 1px;
+  }
+  .asl-progress-wrap {
+    position: absolute; bottom: max(calc(env(safe-area-inset-bottom, 20px) + 60px), 80px);
+    left: 40px; right: 40px;
+  }
+  .asl-progress-bar {
+    width: 100%; height: 4px; border-radius: 2px;
+    background: rgba(255,255,255,0.15); overflow: hidden;
+  }
+  .asl-progress-fill {
+    height: 100%; border-radius: 2px;
+    background: linear-gradient(90deg, var(--blue), var(--purple));
+    width: 0%; transition: width 0.1s linear;
+  }
+  .asl-progress-label {
+    text-align: center; margin-top: 8px;
+    font-size: 13px; color: rgba(255,255,255,0.4); font-weight: 500;
+  }
+  .asl-action-btns {
+    position: absolute; bottom: max(env(safe-area-inset-bottom, 20px), 20px);
+    left: 20px; right: 20px;
+    display: flex; gap: 12px; justify-content: center;
+  }
+  .asl-action-btn {
+    padding: 14px 28px; border-radius: 100px;
+    font-size: 15px; font-weight: 600; cursor: pointer;
+    border: none; font-family: inherit; transition: all 0.2s;
+  }
+  .asl-action-btn:active { transform: scale(0.95); }
+  .asl-action-btn.primary { background: var(--blue); color: white; }
+  .asl-action-btn.secondary { background: rgba(255,255,255,0.12); color: white; }
+
+  /* Humanoid body sway animation */
+  @keyframes bodySway {
+    0%,100% { transform: translateX(0); }
+    25% { transform: translateX(-2px); }
+    75% { transform: translateX(2px); }
+  }
+  .humanoid-figure.animating { animation: bodySway 2.5s ease-in-out infinite; }
+
+  /* Signing ring glow */
+  .signing-ring {
+    position: absolute; width: 300px; height: 340px; border-radius: 50%;
+    border: 2px solid rgba(0,122,255,0.3);
+    top: 50%; left: 50%; transform: translate(-50%, -50%);
+    animation: ringPulse 2s ease-in-out infinite;
+  }
+  @keyframes ringPulse { 0%,100% { transform: translate(-50%,-50%) scale(1); opacity:0.3; } 50% { transform: translate(-50%,-50%) scale(1.08); opacity:0.6; } }
+  .signing-ring.ring2 { width: 340px; height: 380px; animation-delay: 0.5s; border-color: rgba(175,82,222,0.2); }
+
+  /* ===== VOICE PANEL ===== */
+  .voice-card {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: var(--radius-lg); padding: 24px; color: white;
+    text-align: center; margin-bottom: 16px; position: relative; overflow: hidden;
+  }
+  .voice-card::before {
+    content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%;
+    background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 60%);
+    animation: pulse-bg 3s ease-in-out infinite;
+  }
+  @keyframes pulse-bg { 0%,100% { transform: scale(1); opacity: 0.5; } 50% { transform: scale(1.1); opacity: 1; } }
+  .voice-card > * { position: relative; z-index: 1; }
+  .voice-card h3 { font-size: 15px; font-weight: 600; opacity: 0.9; margin-bottom: 12px; }
+  .mic-btn {
+    width: 72px; height: 72px; border-radius: 50%;
+    background: rgba(255,255,255,0.2); border: 3px solid rgba(255,255,255,0.5);
+    display: inline-flex; align-items: center; justify-content: center;
+    cursor: pointer; transition: all 0.2s ease; margin-bottom: 12px;
+    backdrop-filter: blur(10px);
+  }
+  .mic-btn:active { transform: scale(0.9); }
+  .mic-btn.listening {
+    background: rgba(255,255,255,0.35); border-color: white;
+    box-shadow: 0 0 0 8px rgba(255,255,255,0.15);
+    animation: mic-pulse 1.5s ease-in-out infinite;
+  }
+  @keyframes mic-pulse { 0%,100% { box-shadow: 0 0 0 8px rgba(255,255,255,0.15); } 50% { box-shadow: 0 0 0 16px rgba(255,255,255,0.08); } }
+  .mic-btn svg { width: 30px; height: 30px; fill: white; }
+  .voice-status { font-size: 14px; font-weight: 500; opacity: 0.9; }
+  .voice-transcript {
+    margin-top: 10px; padding: 10px 14px; border-radius: var(--radius-sm);
+    background: rgba(255,255,255,0.15); font-size: 15px; font-weight: 600;
+    min-height: 38px; display: flex; align-items: center; justify-content: center;
+    backdrop-filter: blur(10px);
+  }
+
+  /* ===== CAMERA PANEL ===== */
+  .camera-card {
+    background: #1C1C1E; border-radius: var(--radius-lg);
+    overflow: hidden; margin-bottom: 16px;
+    aspect-ratio: 4/3; position: relative;
+  }
+  .camera-card video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
+  .camera-card canvas.hand-canvas {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    transform: scaleX(-1); pointer-events: none; z-index: 5;
+  }
+  .hand-status {
+    position: absolute; bottom: 12px; left: 12px; z-index: 10;
+    background: rgba(0,0,0,0.6); backdrop-filter: blur(10px);
+    padding: 6px 12px; border-radius: 100px;
+    font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.7);
+    display: flex; align-items: center; gap: 6px;
+    transition: all 0.3s;
+  }
+  .hand-status .dot {
+    width: 6px; height: 6px; border-radius: 50%; background: #FF9500;
+    animation: dotPulse 1.5s ease-in-out infinite;
+  }
+  .hand-status.tracking .dot { background: #34C759; }
+  @keyframes dotPulse { 0%,100% { opacity: 0.4; } 50% { opacity: 1; } }
+  .landmark-count {
+    position: absolute; top: 12px; right: 12px; z-index: 10;
+    background: rgba(0,122,255,0.85); backdrop-filter: blur(10px);
+    padding: 6px 12px; border-radius: 100px;
+    font-size: 12px; font-weight: 700; color: white;
+    opacity: 0; transition: opacity 0.3s;
+  }
+  .landmark-count.visible { opacity: 1; }
+  .camera-overlay {
+    position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    color: white; gap: 12px; background: rgba(0,0,0,0.4); transition: opacity 0.3s;
+  }
+  .camera-overlay.hidden { opacity: 0; pointer-events: none; }
+  .camera-overlay svg { width: 48px; height: 48px; stroke: white; fill: none; stroke-width: 1.5; }
+  .camera-overlay p { font-size: 14px; font-weight: 500; opacity: 0.8; }
+  .cam-toggle {
+    position: absolute; bottom: 12px; right: 12px; z-index: 10;
+    width: 44px; height: 44px; border-radius: 50%;
+    background: rgba(255,255,255,0.15); backdrop-filter: blur(10px);
+    border: none; cursor: pointer; display: flex; align-items: center; justify-content: center;
+    transition: all 0.2s;
+  }
+  .cam-toggle:active { transform: scale(0.9); }
+  .cam-toggle svg { width: 22px; height: 22px; stroke: white; fill: none; stroke-width: 2; }
+  .detected-sign {
+    position: absolute; top: 12px; left: 12px; right: 12px; z-index: 10;
+    background: rgba(52,199,89,0.9); backdrop-filter: blur(10px);
+    border-radius: var(--radius-sm); padding: 10px 14px;
+    color: white; font-size: 15px; font-weight: 600; text-align: center;
+    opacity: 0; transform: translateY(-8px); transition: all 0.25s ease;
+  }
+  .detected-sign.show { opacity: 1; transform: translateY(0); }
+
+  /* ===== SESSION LOG ===== */
+  .log-entry {
+    display: flex; gap: 12px; padding: 14px 0;
+    border-bottom: 0.5px solid var(--border);
+  }
+  .log-entry:last-child { border-bottom: none; }
+  .log-icon {
+    width: 36px; height: 36px; border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; font-size: 16px;
+  }
+  .log-icon.voice { background: var(--blue-light); }
+  .log-icon.sign { background: var(--green-light); }
+  .log-icon.cmd { background: var(--purple-light); }
+  .log-text { font-size: 14px; font-weight: 500; color: var(--text-primary); line-height: 1.4; }
+  .log-time { font-size: 11px; color: var(--text-tertiary); margin-top: 2px; }
+  .log-empty { text-align: center; padding: 40px 20px; color: var(--text-tertiary); font-size: 14px; }
+
+  /* ===== DEMO MODE ===== */
+  .demo-fab {
+    position: fixed; bottom: max(calc(env(safe-area-inset-bottom, 20px) + 72px), 92px);
+    right: 16px; z-index: 900;
+    width: 48px; height: 48px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--blue), var(--purple));
+    border: none; cursor: pointer; color: white;
+    font-size: 20px; display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 4px 20px rgba(0,122,255,0.4);
+    transition: all 0.2s;
+  }
+  .demo-fab:active { transform: scale(0.9); }
+  .demo-tooltip {
+    position: fixed; z-index: 950;
+    background: rgba(0,0,0,0.88); backdrop-filter: blur(20px);
+    color: white; border-radius: 16px; padding: 20px;
+    max-width: 320px; width: calc(100% - 40px);
+    left: 50%; transform: translateX(-50%);
+    bottom: max(calc(env(safe-area-inset-bottom, 20px) + 130px), 150px);
+    opacity: 0; pointer-events: none; transition: all 0.3s ease;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.4);
+  }
+  .demo-tooltip.active { opacity: 1; pointer-events: auto; }
+  .demo-tooltip h3 { font-size: 17px; font-weight: 700; margin-bottom: 6px; }
+  .demo-tooltip p { font-size: 14px; color: rgba(255,255,255,0.75); line-height: 1.5; }
+  .demo-tooltip .demo-nav {
+    display: flex; justify-content: space-between; align-items: center; margin-top: 16px;
+  }
+  .demo-tooltip .demo-dots { display: flex; gap: 6px; }
+  .demo-tooltip .demo-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: rgba(255,255,255,0.25);
+  }
+  .demo-tooltip .demo-dot.active { background: white; }
+  .demo-tooltip .demo-btn {
+    background: var(--blue); color: white; border: none; padding: 8px 18px;
+    border-radius: 100px; font-size: 13px; font-weight: 600;
+    cursor: pointer; font-family: inherit;
+  }
+  .demo-tooltip .demo-btn:active { opacity: 0.8; }
+
+  /* ===== DIRECTION INDICATOR ===== */
+  .direction-banner {
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 16px; border-radius: var(--radius-md);
+    margin-bottom: 16px; font-size: 13px; font-weight: 600;
+  }
+  .direction-banner.doc-to-pt {
+    background: linear-gradient(135deg, var(--blue-light), var(--purple-light));
+    color: var(--blue);
+  }
+  .direction-banner.pt-to-doc {
+    background: linear-gradient(135deg, var(--green-light), var(--teal-light));
+    color: #1B7A34;
+  }
+  .direction-banner .dir-arrow { font-size: 18px; }
+  .direction-banner .dir-label { flex: 1; }
+
+  /* Quick action */
+  .quick-action {
+    display: flex; align-items: center; gap: 10px;
+    padding: 14px 16px; background: var(--card);
+    border-radius: var(--radius-md); margin-bottom: 8px;
+    border: 0.5px solid var(--border); cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .quick-action:active { transform: scale(0.98); background: var(--bg); }
+  .quick-action .qa-icon {
+    width: 40px; height: 40px; border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px; flex-shrink: 0;
+  }
+  .quick-action .qa-text { font-size: 15px; font-weight: 500; flex: 1; }
+  .quick-action .qa-arrow { color: var(--text-tertiary); font-size: 18px; }
+
+  /* Badge */
+  .badge {
+    display: inline-block; padding: 3px 8px; border-radius: 6px;
+    font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  .badge.beta { background: var(--orange-light); color: #C77800; }
+
+  /* Toggle */
+  .toggle {
+    width: 51px; height: 31px; border-radius: 16px;
+    background: #E9E9EB; position: relative; cursor: pointer;
+    transition: background 0.3s; flex-shrink: 0;
+  }
+  .toggle.on { background: var(--green); }
+  .toggle::after {
+    content: ''; position: absolute; top: 2px; left: 2px;
+    width: 27px; height: 27px; border-radius: 50%;
+    background: white; box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+    transition: transform 0.3s;
+  }
+  .toggle.on::after { transform: translateX(20px); }
+
+  .hero-icon {
+    width: 64px; height: 64px; margin: 0 auto 16px;
+    background: var(--blue-light); border-radius: 18px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .hero-icon svg { width: 32px; height: 32px; stroke: var(--blue); fill: none; stroke-width: 1.8; }
+
+  .screen::-webkit-scrollbar { width: 0px; }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* ===== DARK MODE TOGGLE (top nav) ===== */
+  .dark-toggle {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: rgba(142,142,147,0.12); border: none;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; transition: all 0.3s ease;
+    -webkit-tap-highlight-color: transparent; font-size: 18px;
+  }
+  .dark-toggle:active { transform: scale(0.88); }
+  [data-theme="dark"] .dark-toggle { background: rgba(255,255,255,0.1); }
+
+  /* ===== EMERGENCY STRIP ===== */
+  .emergency-strip {
+    display: flex; gap: 8px; overflow-x: auto; padding: 2px 0 14px;
+    -webkit-overflow-scrolling: touch; scrollbar-width: none;
+  }
+  .emergency-strip::-webkit-scrollbar { display: none; }
+  .emergency-btn {
+    flex-shrink: 0; display: flex; align-items: center; gap: 6px;
+    padding: 10px 14px; border-radius: 100px;
+    border: 1.5px solid var(--red); background: var(--red-light);
+    color: var(--red); font-size: 13px; font-weight: 700;
+    cursor: pointer; transition: all 0.2s ease;
+    -webkit-tap-highlight-color: transparent; font-family: inherit;
+    white-space: nowrap;
+  }
+  .emergency-btn:active { transform: scale(0.93); background: var(--red); color: white; }
+  .emergency-btn .em-icon { font-size: 15px; }
+  [data-theme="dark"] .emergency-btn { border-color: rgba(255,59,48,0.5); }
+
+  /* ===== CONFIDENCE METER ===== */
+  .confidence-meter {
+    display: flex; align-items: center; gap: 10px; margin-bottom: 14px;
+  }
+  .confidence-bar-wrap {
+    flex: 1; height: 6px; border-radius: 3px;
+    background: rgba(142,142,147,0.15); overflow: hidden;
+  }
+  .confidence-bar-fill {
+    height: 100%; border-radius: 3px;
+    transition: width 0.6s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.4s ease;
+  }
+  .confidence-pct {
+    font-size: 24px; font-weight: 800; min-width: 60px;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -1px;
+  }
+  .confidence-label {
+    font-size: 11px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.5px; color: var(--text-tertiary); margin-bottom: 4px;
+  }
+
+  /* ===== PATIENT RESPONSE PANEL ===== */
+  .patient-response-panel {
+    display: flex; gap: 8px; flex-wrap: wrap; justify-content: center;
+    padding: 0 20px;
+  }
+  .patient-resp-btn {
+    display: flex; align-items: center; gap: 6px;
+    padding: 14px 20px; border-radius: 100px;
+    border: 2px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.08);
+    color: white; font-size: 15px; font-weight: 600;
+    cursor: pointer; transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+    font-family: inherit; backdrop-filter: blur(10px);
+    -webkit-tap-highlight-color: transparent;
+  }
+  .patient-resp-btn:active { transform: scale(0.92); }
+  .patient-resp-btn.understand { border-color: var(--green); color: var(--green); }
+  .patient-resp-btn.understand:active { background: var(--green); color: white; }
+  .patient-resp-btn.repeat { border-color: var(--orange); color: var(--orange); }
+  .patient-resp-btn.repeat:active { background: var(--orange); color: white; }
+  .patient-resp-btn.question { border-color: var(--teal); color: var(--teal); }
+  .patient-resp-btn.question:active { background: var(--teal); color: white; }
+
+  /* ===== ASL OVERLAY SPRING SLIDE-UP ===== */
+  .asl-overlay {
+    transform: translateY(30px);
+    transition: opacity 0.4s ease, transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+  }
+  .asl-overlay.active { transform: translateY(0) !important; }
+
+  /* ===== MICRO-INTERACTIONS ===== */
+  .cmd-btn {
+    transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+  }
+  .cmd-btn:active { transform: scale(0.94) !important; box-shadow: 0 0 0 3px rgba(0,122,255,0.12) !important; }
+  .pill { transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1) !important; }
+  .pill:active { transform: scale(0.92) !important; }
+  .tab-item { transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1) !important; }
+  .tab-item:active { transform: scale(0.85) !important; }
+  .quick-action { transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1) !important; }
+  .quick-action:active { transform: scale(0.97) !important; }
+
+  /* ===== VOICE CARD REFINED MATCH ===== */
+  .voice-match-card {
+    text-align: center; padding: 20px;
+  }
+  .voice-match-phrase {
+    font-size: 22px; font-weight: 800; margin-bottom: 4px;
+    line-height: 1.2;
+  }
+
+  /* ===== PILL SLIDING INDICATOR ===== */
+  .pill-row { position: relative; }
+
+  /* ===== IMPROVED SPACING ===== */
+  .section-label { margin: 24px 4px 12px; font-size: 12px; letter-spacing: 1px; }
+  .section-label:first-child { margin-top: 8px; }
+  .card { margin-bottom: 12px; transition: var(--transition-theme), transform 0.15s ease, box-shadow 0.15s ease; }
+  .cmd-grid { gap: 8px; }
+
+  /* ===== ANIMATED GRADIENT BORDER ON SIGNING ===== */
+  @keyframes signPulse {
+    0%, 100% { box-shadow: 0 0 0 3px rgba(0,122,255,0.15); }
+    50% { box-shadow: 0 0 0 5px rgba(175,82,222,0.2); }
+  }
+  .cmd-btn.signing { animation: signPulse 1s infinite; }
+
+  /* ===== THEME TRANSITIONS ===== */
+  .top-nav, .tab-bar, .card, .cmd-btn, .pill, .search-bar, .quick-action, .badge {
+    transition: var(--transition-theme), transform 0.15s ease;
+  }
+
+  /* ===== MODE SWITCHER ===== */
+  .mode-switcher {
+    display: flex; background: rgba(142,142,147,0.12); border-radius: 10px;
+    padding: 3px; margin: 10px 0 4px; position: relative;
+  }
+  .mode-switcher-btn {
+    flex: 1; padding: 8px 12px; border: none; background: none;
+    font-size: 13px; font-weight: 600; color: var(--text-secondary);
+    cursor: pointer; border-radius: 8px; font-family: inherit;
+    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    -webkit-tap-highlight-color: transparent; position: relative; z-index: 2;
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+  }
+  .mode-switcher-btn.active {
+    color: var(--text-primary); background: var(--card);
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+  }
+  .mode-switcher-btn:active { transform: scale(0.96); }
+  .mode-switcher-btn .mode-icon { font-size: 15px; }
+  [data-theme="dark"] .mode-switcher { background: rgba(255,255,255,0.06); }
+  [data-theme="dark"] .mode-switcher-btn.active { background: rgba(255,255,255,0.1); }
+
+  /* ===== PATIENT MODE SCREEN ===== */
+  .patient-mode-container {
+    display: none; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+    overflow-y: auto; overflow-x: hidden;
+    padding: 16px 16px calc(var(--safe-bottom) + 24px);
+    -webkit-overflow-scrolling: touch;
+    background: var(--bg);
+  }
+  .patient-mode-container.active { display: block; }
+
+  .patient-header {
+    text-align: center; padding: 16px 0 20px;
+  }
+  .patient-header h2 {
+    font-size: 26px; font-weight: 800; color: var(--text-primary);
+    margin-bottom: 4px;
+  }
+  .patient-header p {
+    font-size: 15px; color: var(--text-secondary); font-weight: 500;
+  }
+
+  /* Patient camera card */
+  .patient-camera-card {
+    background: var(--card); border-radius: var(--radius-lg);
+    overflow: hidden; position: relative; aspect-ratio: 4/3;
+    margin-bottom: 20px; border: 2px solid var(--border);
+    box-shadow: var(--shadow-md);
+  }
+  .patient-camera-card video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
+  .patient-camera-card canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; transform: scaleX(-1); pointer-events: none; z-index: 5; }
+  .patient-cam-overlay {
+    position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    background: rgba(0,0,0,0.04); gap: 12px; z-index: 2;
+  }
+  .patient-cam-overlay.hidden { display: none; }
+  .patient-cam-btn {
+    background: linear-gradient(135deg, var(--green), var(--teal));
+    color: white; border: none; border-radius: 100px;
+    padding: 16px 32px; font-size: 17px; font-weight: 700;
+    cursor: pointer; font-family: inherit;
+    box-shadow: 0 4px 16px rgba(52,199,89,0.3);
+    transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .patient-cam-btn:active { transform: scale(0.93); }
+  .patient-cam-status {
+    font-size: 14px; font-weight: 600; color: var(--text-secondary); text-align: center;
+    margin-top: 8px;
+  }
+
+  /* Patient live transcript */
+  .patient-transcript-box {
+    background: var(--card); border: 1.5px solid var(--border);
+    border-radius: var(--radius-lg); margin: 16px 0 20px;
+    overflow: hidden; box-shadow: var(--shadow-sm);
+  }
+  .transcript-header {
+    display: flex; align-items: center; gap: 8px;
+    padding: 12px 16px; border-bottom: 0.5px solid var(--border);
+    background: var(--green-light);
+  }
+  .transcript-header .t-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--green); animation: dotPulse 1.5s ease-in-out infinite;
+  }
+  .transcript-header .t-label {
+    font-size: 13px; font-weight: 700; color: var(--green);
+    text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  .transcript-feed {
+    padding: 12px 16px; max-height: 180px; overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .transcript-entry {
+    display: flex; align-items: flex-start; gap: 10px;
+    padding: 8px 0; border-bottom: 0.5px solid var(--border);
+    animation: fadeSlideIn 0.3s ease;
+  }
+  .transcript-entry:last-child { border-bottom: none; }
+  .transcript-entry .t-icon {
+    font-size: 16px; flex-shrink: 0; margin-top: 2px;
+  }
+  .transcript-entry .t-text {
+    font-size: 15px; font-weight: 600; color: var(--text-primary); line-height: 1.4;
+  }
+  .transcript-entry .t-time {
+    font-size: 10px; color: var(--text-tertiary); margin-top: 2px;
+  }
+  .transcript-empty {
+    padding: 20px; text-align: center;
+    font-size: 14px; color: var(--text-tertiary);
+  }
+  @keyframes fadeSlideIn {
+    from { opacity: 0; transform: translateY(-6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Interactive body map */
+  .body-map-section {
+    margin-bottom: 24px;
+  }
+  .body-map-label {
+    font-size: 18px; font-weight: 700; text-align: center;
+    margin-bottom: 4px; color: var(--text-primary);
+  }
+  .body-map-sublabel {
+    font-size: 13px; color: var(--text-secondary); text-align: center;
+    margin-bottom: 16px; font-weight: 500;
+  }
+  .body-map-container {
+    display: flex; flex-direction: column; align-items: center;
+    gap: 16px;
+  }
+  .body-map-svg-wrap {
+    position: relative; width: 200px; height: 320px;
+  }
+  .body-map-svg-wrap svg { width: 100%; height: 100%; }
+  .body-zone {
+    fill: rgba(142,142,147,0.08); stroke: var(--border); stroke-width: 1.5;
+    cursor: pointer; transition: all 0.25s ease;
+  }
+  .body-zone:hover, .body-zone:active { fill: rgba(0,122,255,0.1); stroke: var(--blue); }
+  .body-zone.selected { fill: rgba(255,59,48,0.2); stroke: var(--red); stroke-width: 2.5; }
+  .body-zone-label {
+    font-size: 9px; fill: var(--text-tertiary); text-anchor: middle;
+    pointer-events: none; font-weight: 600;
+  }
+  [data-theme="dark"] .body-zone { fill: rgba(255,255,255,0.04); stroke: rgba(255,255,255,0.1); }
+  [data-theme="dark"] .body-zone:hover { fill: rgba(0,122,255,0.15); }
+  [data-theme="dark"] .body-zone.selected { fill: rgba(255,59,48,0.25); }
+  .body-selection-info {
+    text-align: center; padding: 12px 16px;
+    background: var(--card); border-radius: var(--radius-md);
+    border: 1.5px solid var(--border); min-width: 200px;
+  }
+  .body-selection-info .sel-area {
+    font-size: 17px; font-weight: 700; color: var(--text-primary);
+    margin-bottom: 8px;
+  }
+  .body-selection-info .sel-prompt {
+    font-size: 13px; color: var(--text-secondary); margin-bottom: 12px;
+  }
+  .severity-row {
+    display: flex; gap: 4px; justify-content: center;
+  }
+  .severity-dot {
+    width: 36px; height: 36px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 800; cursor: pointer;
+    border: 2px solid var(--border); background: var(--card);
+    color: var(--text-secondary);
+    transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .severity-dot:active { transform: scale(0.9); }
+  .severity-dot.selected { color: white; transform: scale(1.15); box-shadow: 0 3px 10px rgba(0,0,0,0.15); }
+  .severity-faces { display: flex; justify-content: space-between; margin-top: 6px; font-size: 10px; color: var(--text-tertiary); font-weight: 600; }
+
+  /* Patient quick responses */
+  .patient-responses {
+    display: flex; flex-direction: column; gap: 10px; margin-bottom: 24px;
+  }
+  .patient-resp-big {
+    display: flex; align-items: center; gap: 14px;
+    padding: 18px 20px; border-radius: var(--radius-lg);
+    border: 2px solid var(--border); background: var(--card);
+    cursor: pointer; transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+    -webkit-tap-highlight-color: transparent;
+  }
+  .patient-resp-big:active { transform: scale(0.97); }
+  .patient-resp-big .resp-icon {
+    width: 48px; height: 48px; border-radius: 14px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 24px; flex-shrink: 0;
+  }
+  .patient-resp-big .resp-text {
+    font-size: 20px; font-weight: 700; color: var(--text-primary);
+  }
+  .patient-resp-big .resp-sub {
+    font-size: 13px; color: var(--text-secondary); font-weight: 500; margin-top: 2px;
+  }
+  .patient-resp-big.yes { border-color: var(--green); }
+  .patient-resp-big.yes .resp-icon { background: var(--green-light); }
+  .patient-resp-big.yes:active { background: var(--green-light); }
+  .patient-resp-big.no { border-color: var(--red); }
+  .patient-resp-big.no .resp-icon { background: var(--red-light); }
+  .patient-resp-big.no:active { background: var(--red-light); }
+  .patient-resp-big.help { border-color: var(--orange); }
+  .patient-resp-big.help .resp-icon { background: var(--orange-light); }
+  .patient-resp-big.help:active { background: var(--orange-light); }
+  .patient-resp-big.repeat-req { border-color: var(--blue); }
+  .patient-resp-big.repeat-req .resp-icon { background: var(--blue-light); }
+  .patient-resp-big.repeat-req:active { background: var(--blue-light); }
+
+  /* Pain scale */
+  .pain-scale-section { margin-bottom: 20px; }
+  .pain-scale-label {
+    font-size: 18px; font-weight: 700; text-align: center;
+    margin-bottom: 12px; color: var(--text-primary);
+  }
+  .pain-scale {
+    display: flex; gap: 4px; justify-content: center;
+  }
+  .pain-dot {
+    width: 40px; height: 40px; border-radius: 50%; border: 2px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; font-weight: 800; cursor: pointer;
+    transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+    -webkit-tap-highlight-color: transparent; background: var(--card);
+    color: var(--text-secondary);
+  }
+  .pain-dot:active { transform: scale(0.9); }
+  .pain-dot.selected {
+    transform: scale(1.15); color: white;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.15);
+  }
+  .pain-faces { display: flex; justify-content: space-between; margin-top: 6px; padding: 0 2px; }
+  .pain-faces span { font-size: 10px; color: var(--text-tertiary); font-weight: 600; }
+
+  /* Patient mode hides tab bar */
+  .app.patient-active .tab-bar { display: none; }
+  .app.patient-active .screen-container { display: none; }
+</style>
+</head>
+<body>
+
+<div class="app" id="app">
+  <!-- TOP NAV -->
+  <div class="top-nav">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <div>
+        <h1>SignBridge</h1>
+        <div class="subtitle"><span class="status-dot active"></span>Perioperative ASL Communication</div>
+      </div>
+      <div style="display:flex; align-items:center; gap:8px;">
+        <button class="dark-toggle" id="darkToggle" onclick="toggleDarkMode()" title="Toggle Dark Mode">☀️</button>
+        <span class="badge beta">MVP</span>
+      </div>
+    </div>
+    <!-- MODE SWITCHER -->
+    <div class="mode-switcher" id="modeSwitcher">
+      <button class="mode-switcher-btn active" id="modeProvider" onclick="switchMode('provider')">
+        <span class="mode-icon">🩺</span> Provider
+      </button>
+      <button class="mode-switcher-btn" id="modePatient" onclick="switchMode('patient')">
+        <span class="mode-icon">🤟</span> Patient
+      </button>
+    </div>
+  </div>
+
+  <!-- SCREENS -->
+  <div class="screen-container">
+
+    <!-- ===== COMMANDS SCREEN ===== -->
+    <div class="screen active" id="screen-commands">
+      <!-- EMERGENCY QUICK ACCESS -->
+      <div class="emergency-strip" id="emergencyStrip">
+        <button class="emergency-btn" onclick="showASLSign('I need help')"><span class="em-icon">🚨</span> I need help</button>
+        <button class="emergency-btn" onclick="showASLSign('You are safe')"><span class="em-icon">🛡️</span> You are safe</button>
+        <button class="emergency-btn" onclick="showASLSign('Do not move')"><span class="em-icon">✋</span> Don't move</button>
+        <button class="emergency-btn" onclick="showASLSign('Try to relax')"><span class="em-icon">💆</span> Relax</button>
+        <button class="emergency-btn" onclick="showASLSign('Keep breathing normally')"><span class="em-icon">🫁</span> Keep breathing</button>
+      </div>
+
+      <div class="direction-banner doc-to-pt">
+        <span class="dir-arrow">👨‍⚕️</span>
+        <span class="dir-label">Provider to Patient — Tap a phrase to sign in ASL</span>
+        <span class="dir-arrow">➜ 🤟</span>
+      </div>
+      <div class="search-bar">
+        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" placeholder="Search commands..." id="searchInput" oninput="filterCommands()">
+      </div>
+      <div class="pill-row" id="categoryPills"></div>
+      <div class="cmd-grid" id="commandGrid"></div>
+    </div>
+
+    <!-- ===== VOICE SCREEN ===== -->
+    <div class="screen" id="screen-voice">
+      <div class="direction-banner doc-to-pt">
+        <span class="dir-arrow">🎙️</span>
+        <span class="dir-label">Speak naturally — auto-matches to ASL phrases</span>
+        <span class="dir-arrow">➜ 🤟</span>
+      </div>
+
+      <div class="voice-card">
+        <h3>Provider Voice Input</h3>
+        <div class="mic-btn" id="micBtn" onclick="toggleMic()">
+          <svg viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+        </div>
+        <div class="voice-status" id="voiceStatus">Tap to speak</div>
+        <div class="voice-transcript" id="voiceTranscript">—</div>
+      </div>
+
+      <div class="section-label">Matched Phrase</div>
+      <div class="card" id="matchedCommandCard" style="text-align:center; padding:20px;">
+        <div style="color: var(--text-tertiary); font-size:14px;">Speak a command to find a match</div>
+      </div>
+
+      <div class="section-label" style="margin-top:20px;">Quick Sign Phrases</div>
+      <div id="quickPhrases"></div>
+    </div>
+
+    <!-- ===== CAMERA SCREEN ===== -->
+    <div class="screen" id="screen-camera">
+      <div class="direction-banner pt-to-doc">
+        <span class="dir-arrow">🤟</span>
+        <span class="dir-label">Patient to Provider — Camera reads ASL signs</span>
+        <span class="dir-arrow">➜ 👨‍⚕️</span>
+      </div>
+
+      <div class="camera-card">
+        <video id="cameraFeed" autoplay playsinline muted></video>
+        <canvas class="hand-canvas" id="handCanvas"></canvas>
+        <div class="camera-overlay" id="cameraOverlay">
+          <svg viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+          <p>Tap to start ASL detection</p>
+        </div>
+        <div class="detected-sign" id="detectedSign"></div>
+        <div class="hand-status" id="handStatus"><div class="dot"></div>Initializing hand tracking...</div>
+        <div class="landmark-count" id="landmarkCount"></div>
+        <button class="cam-toggle" id="camToggle" onclick="toggleCamera()">
+          <svg viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+        </button>
+      </div>
+
+      <div class="section-label">Translated from Patient (ASL → Text)</div>
+      <div class="card" id="aslLog">
+        <div class="log-empty">
+          <div class="hero-icon">
+            <svg viewBox="0 0 24 24"><path d="M7 11V7a5 5 0 0 1 10 0v4"/><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/></svg>
+          </div>
+          Point camera at patient to read their ASL signs
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== LOG SCREEN ===== -->
+    <div class="screen" id="screen-log">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 16px;">
+        <div class="section-label" style="margin:0;">Session Log</div>
+        <button onclick="clearLog()" style="background:none;border:none;color:var(--red);font-size:13px;font-weight:600;cursor:pointer;">Clear</button>
+      </div>
+      <div class="card" id="sessionLog">
+        <div class="log-empty">
+          <div class="hero-icon">
+            <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          </div>
+          Session events will appear here
+        </div>
+      </div>
+
+      <div class="section-label" style="margin-top:24px;">About</div>
+      <div class="card" style="padding:20px;">
+        <div style="text-align:center;">
+          <div style="font-size:20px;font-weight:700;background:linear-gradient(135deg,var(--blue),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent;">SignBridge</div>
+          <div style="font-size:12px;color:var(--text-secondary);margin-top:4px;">v5.0 MVP · Powered by LinguaMed Commands</div>
+          <div style="font-size:12px;color:var(--text-secondary);margin-top:2px;">Bidirectional ASL Communication for Perioperative Care</div>
+          <div style="font-size:11px;color:var(--text-tertiary);margin-top:12px;line-height:1.5;">
+            Adrian Williams · Jasmine Miller, M.D. · Myca-Lee McComie<br>
+            Albert Einstein College of Medicine
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== PATIENT MODE SCREEN ===== -->
+  <div class="patient-mode-container" id="patientModeScreen">
+    <div class="patient-header">
+      <h2>👋 Hello!</h2>
+      <p>Use the buttons below to communicate with your care team</p>
+    </div>
+
+    <!-- Patient Camera -->
+    <div class="patient-camera-card">
+      <video id="patientCamFeed" autoplay playsinline muted></video>
+      <canvas id="patientHandCanvas"></canvas>
+      <div class="patient-cam-overlay" id="patientCamOverlay">
+        <button class="patient-cam-btn" onclick="togglePatientCamera()">
+          📷 Start Camera to Sign
+        </button>
+      </div>
+      <div class="detected-sign" id="patientDetectedSign"></div>
+    </div>
+    <div class="patient-cam-status" id="patientCamStatus">Tap above to start hand tracking</div>
+
+    <!-- Live Transcript (visible to doctor — shows real-time detections) -->
+    <div class="patient-transcript-box" id="patientTranscriptBox">
+      <div class="transcript-header">
+        <div class="t-dot"></div>
+        <div class="t-label">Live Translation</div>
+      </div>
+      <div class="transcript-feed" id="patientTranscriptFeed">
+        <div class="transcript-empty">Start the camera — detected signs will appear here in real time</div>
+      </div>
+    </div>
+
+    <!-- Quick Responses -->
+    <div style="font-size:12px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:1px;margin:20px 4px 12px;">Quick Responses</div>
+    <div class="patient-responses">
+      <div class="patient-resp-big yes" onclick="patientQuickReply('yes')">
+        <div class="resp-icon">👍</div>
+        <div><div class="resp-text">Yes</div><div class="resp-sub">I understand</div></div>
+      </div>
+      <div class="patient-resp-big no" onclick="patientQuickReply('no')">
+        <div class="resp-icon">👎</div>
+        <div><div class="resp-text">No</div><div class="resp-sub">I don't understand</div></div>
+      </div>
+      <div class="patient-resp-big help" onclick="patientQuickReply('help')">
+        <div class="resp-icon">🆘</div>
+        <div><div class="resp-text">I Need Help</div><div class="resp-sub">Get attention now</div></div>
+      </div>
+      <div class="patient-resp-big repeat-req" onclick="patientQuickReply('repeat')">
+        <div class="resp-icon">🔄</div>
+        <div><div class="resp-text">Repeat Please</div><div class="resp-sub">Sign that again</div></div>
+      </div>
+    </div>
+
+    <!-- Pain: Interactive Body Map -->
+    <div class="body-map-section">
+      <div class="body-map-label">Where is your pain?</div>
+      <div class="body-map-sublabel">Point to the area, then rate how much it hurts</div>
+      <div class="body-map-container">
+        <div class="body-map-svg-wrap">
+          <svg id="bodyMapSVG" viewBox="0 0 200 340" xmlns="http://www.w3.org/2000/svg">
+            <!-- Head -->
+            <circle class="body-zone" data-zone="head" cx="100" cy="30" r="24" onclick="selectBodyZone('head')"/>
+            <text class="body-zone-label" x="100" y="33">Head</text>
+            <!-- Neck -->
+            <rect class="body-zone" data-zone="neck" x="90" y="54" width="20" height="16" rx="4" onclick="selectBodyZone('neck')"/>
+            <!-- Chest -->
+            <rect class="body-zone" data-zone="chest" x="62" y="70" width="76" height="50" rx="10" onclick="selectBodyZone('chest')"/>
+            <text class="body-zone-label" x="100" y="99">Chest</text>
+            <!-- Abdomen -->
+            <rect class="body-zone" data-zone="abdomen" x="66" y="122" width="68" height="48" rx="8" onclick="selectBodyZone('abdomen')"/>
+            <text class="body-zone-label" x="100" y="150">Abdomen</text>
+            <!-- Left Arm -->
+            <rect class="body-zone" data-zone="left-arm" x="18" y="76" width="38" height="72" rx="12" onclick="selectBodyZone('left-arm')"/>
+            <text class="body-zone-label" x="37" y="116">L Arm</text>
+            <!-- Right Arm -->
+            <rect class="body-zone" data-zone="right-arm" x="144" y="76" width="38" height="72" rx="12" onclick="selectBodyZone('right-arm')"/>
+            <text class="body-zone-label" x="163" y="116">R Arm</text>
+            <!-- Left Hand -->
+            <circle class="body-zone" data-zone="left-hand" cx="32" cy="162" r="14" onclick="selectBodyZone('left-hand')"/>
+            <text class="body-zone-label" x="32" y="165">Hand</text>
+            <!-- Right Hand -->
+            <circle class="body-zone" data-zone="right-hand" cx="168" cy="162" r="14" onclick="selectBodyZone('right-hand')"/>
+            <text class="body-zone-label" x="168" y="165">Hand</text>
+            <!-- Lower Back / Hip -->
+            <rect class="body-zone" data-zone="lower-back" x="70" y="172" width="60" height="30" rx="6" onclick="selectBodyZone('lower-back')"/>
+            <text class="body-zone-label" x="100" y="191">Back/Hip</text>
+            <!-- Left Leg -->
+            <rect class="body-zone" data-zone="left-leg" x="62" y="206" width="32" height="90" rx="10" onclick="selectBodyZone('left-leg')"/>
+            <text class="body-zone-label" x="78" y="258">L Leg</text>
+            <!-- Right Leg -->
+            <rect class="body-zone" data-zone="right-leg" x="106" y="206" width="32" height="90" rx="10" onclick="selectBodyZone('right-leg')"/>
+            <text class="body-zone-label" x="122" y="258">R Leg</text>
+            <!-- Left Foot -->
+            <ellipse class="body-zone" data-zone="left-foot" cx="78" cy="308" rx="16" ry="10" onclick="selectBodyZone('left-foot')"/>
+            <text class="body-zone-label" x="78" y="311">Foot</text>
+            <!-- Right Foot -->
+            <ellipse class="body-zone" data-zone="right-foot" cx="122" cy="308" rx="16" ry="10" onclick="selectBodyZone('right-foot')"/>
+            <text class="body-zone-label" x="122" y="311">Foot</text>
+          </svg>
+        </div>
+        <!-- Selection info panel (appears after tapping a zone) -->
+        <div class="body-selection-info" id="bodySelectionInfo" style="display:none;">
+          <div class="sel-area" id="bodySelArea">—</div>
+          <div class="sel-prompt">Rate the pain (0 = none, 10 = worst)</div>
+          <div class="severity-row" id="severityRow">
+            <div class="severity-dot" onclick="selectSeverity(0)" style="border-color:#34C759;">0</div>
+            <div class="severity-dot" onclick="selectSeverity(1)" style="border-color:#5AC54F;">1</div>
+            <div class="severity-dot" onclick="selectSeverity(2)" style="border-color:#8BC740;">2</div>
+            <div class="severity-dot" onclick="selectSeverity(3)" style="border-color:#C7C730;">3</div>
+            <div class="severity-dot" onclick="selectSeverity(4)" style="border-color:#E8C020;">4</div>
+            <div class="severity-dot" onclick="selectSeverity(5)" style="border-color:#FF9500;">5</div>
+            <div class="severity-dot" onclick="selectSeverity(6)" style="border-color:#FF7B00;">6</div>
+            <div class="severity-dot" onclick="selectSeverity(7)" style="border-color:#FF5C00;">7</div>
+            <div class="severity-dot" onclick="selectSeverity(8)" style="border-color:#FF3B30;">8</div>
+            <div class="severity-dot" onclick="selectSeverity(9)" style="border-color:#FF2D20;">9</div>
+            <div class="severity-dot" onclick="selectSeverity(10)" style="border-color:#CC1100;">10</div>
+          </div>
+          <div class="severity-faces"><span>😊 None</span><span>😐 Moderate</span><span>😣 Worst</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- BOTTOM TAB BAR -->
+  <div class="tab-bar" id="tabBar">
+    <div class="tab-item active" onclick="switchTab('commands')" data-tab="commands">
+      <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+      <span>Commands</span>
+    </div>
+    <div class="tab-item" onclick="switchTab('voice')" data-tab="voice">
+      <svg viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/></svg>
+      <span>Voice</span>
+    </div>
+    <div class="tab-item" onclick="switchTab('camera')" data-tab="camera">
+      <svg viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+      <span>Camera</span>
+    </div>
+    <div class="tab-item" onclick="switchTab('log')" data-tab="log">
+      <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+      <span>Log</span>
+    </div>
+  </div>
+</div>
+
+<!-- ===== ASL SIGNING OVERLAY ===== -->
+<div class="asl-overlay" id="aslOverlay">
+  <button class="close-btn" onclick="closeASLOverlay()">
+    <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+  </button>
+  <div class="provider-badge">Provider Message</div>
+
+  <div class="asl-signing-area">
+    <div class="signing-ring"></div>
+    <div class="signing-ring ring2"></div>
+    <div class="asl-avatar">
+      <svg class="humanoid-figure" id="humanoidFigure" viewBox="0 0 260 320" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="armGlow" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" style="stop-color:rgba(0,122,255,0.8)"/>
+            <stop offset="100%" style="stop-color:rgba(175,82,222,0.8)"/>
+          </linearGradient>
+          <radialGradient id="headGlow" cx="50%" cy="40%" r="50%">
+            <stop offset="0%" style="stop-color:rgba(255,255,255,0.12)"/>
+            <stop offset="100%" style="stop-color:rgba(255,255,255,0.03)"/>
+          </radialGradient>
+        </defs>
+        <!-- Body / Torso -->
+        <ellipse cx="130" cy="195" rx="42" ry="55" class="body-fill"/>
+        <ellipse cx="130" cy="195" rx="42" ry="55" class="body-stroke" style="opacity:0.4;"/>
+        <!-- Neck -->
+        <line x1="130" y1="140" x2="130" y2="155" class="body-stroke" style="opacity:0.4;"/>
+        <!-- Head -->
+        <circle cx="130" cy="115" r="30" fill="url(#headGlow)" class="head-shape"/>
+        <!-- Left Arm: upper + forearm + hand -->
+        <line id="armLU" x1="88" y1="165" x2="60" y2="145" class="body-glow arm-segment"/>
+        <line id="armLF" x1="60" y1="145" x2="45" y2="110" class="body-glow arm-segment"/>
+        <g id="handL" transform="translate(45,105)" class="hand-circle">
+          <circle r="14" fill="url(#armGlow)" opacity="0.4"/>
+          <!-- Phantom hand shape - changes per gesture -->
+          <g id="handShapeL" class="phantom-hand">
+            <line x1="0" y1="-12" x2="0" y2="-22" stroke="url(#armGlow)" stroke-width="2.5" stroke-linecap="round" opacity="0.9"/>
+            <line x1="-5" y1="-11" x2="-8" y2="-21" stroke="url(#armGlow)" stroke-width="2" stroke-linecap="round" opacity="0.8"/>
+            <line x1="5" y1="-11" x2="8" y2="-21" stroke="url(#armGlow)" stroke-width="2" stroke-linecap="round" opacity="0.8"/>
+            <line x1="-9" y1="-8" x2="-14" y2="-16" stroke="url(#armGlow)" stroke-width="1.8" stroke-linecap="round" opacity="0.7"/>
+            <line x1="9" y1="-8" x2="14" y2="-16" stroke="url(#armGlow)" stroke-width="1.8" stroke-linecap="round" opacity="0.7"/>
+          </g>
+        </g>
+        <!-- Right Arm: upper + forearm + hand -->
+        <line id="armRU" x1="172" y1="165" x2="200" y2="145" class="body-glow arm-segment"/>
+        <line id="armRF" x1="200" y1="145" x2="215" y2="110" class="body-glow arm-segment"/>
+        <g id="handR" transform="translate(215,105)" class="hand-circle">
+          <circle r="14" fill="url(#armGlow)" opacity="0.4"/>
+          <g id="handShapeR" class="phantom-hand">
+            <line x1="0" y1="-12" x2="0" y2="-22" stroke="url(#armGlow)" stroke-width="2.5" stroke-linecap="round" opacity="0.9"/>
+            <line x1="-5" y1="-11" x2="-8" y2="-21" stroke="url(#armGlow)" stroke-width="2" stroke-linecap="round" opacity="0.8"/>
+            <line x1="5" y1="-11" x2="8" y2="-21" stroke="url(#armGlow)" stroke-width="2" stroke-linecap="round" opacity="0.8"/>
+            <line x1="-9" y1="-8" x2="-14" y2="-16" stroke="url(#armGlow)" stroke-width="1.8" stroke-linecap="round" opacity="0.7"/>
+            <line x1="9" y1="-8" x2="14" y2="-16" stroke="url(#armGlow)" stroke-width="1.8" stroke-linecap="round" opacity="0.7"/>
+          </g>
+        </g>
+        <!-- Legs (subtle, static) -->
+        <line x1="115" y1="245" x2="105" y2="305" class="body-stroke" style="opacity:0.25;"/>
+        <line x1="145" y1="245" x2="155" y2="305" class="body-stroke" style="opacity:0.25;"/>
+      </svg>
+    </div>
+  </div>
+
+  <div class="demo-version-badge">Demo Animation — Production: Pre-Recorded ASL Video</div>
+  <div class="asl-phrase-text" id="aslPhraseText"></div>
+  <div class="asl-subtitle" id="aslSubtitle">Now Signing</div>
+
+  <div class="asl-progress-wrap">
+    <div class="asl-progress-bar">
+      <div class="asl-progress-fill" id="aslProgressFill"></div>
+    </div>
+    <div class="asl-progress-label" id="aslProgressLabel">Signing...</div>
+  </div>
+
+  <div class="asl-action-btns" id="aslActionBtns" style="display:none;">
+    <button class="asl-action-btn secondary" onclick="replayASL()">↻ Replay</button>
+    <button class="asl-action-btn primary" onclick="closeASLOverlay()">Done</button>
+  </div>
+
+  <!-- Patient Response Panel (shown after signing completes) -->
+  <div class="patient-response-panel" id="patientResponsePanel" style="display:none;">
+    <button class="patient-resp-btn understand" onclick="patientResponse('understand')">✓ I Understand</button>
+    <button class="patient-resp-btn repeat" onclick="patientResponse('repeat')">↻ Repeat</button>
+    <button class="patient-resp-btn question" onclick="patientResponse('question')">? Question</button>
+  </div>
+</div>
+
+<!-- DEMO MODE WALKTHROUGH -->
+<button class="demo-fab" id="demoFab" onclick="toggleDemo()">▶</button>
+<div class="demo-tooltip" id="demoTooltip"></div>
+
+<script>
+// ===== DEMO WALKTHROUGH =====
+const demoSteps = [
+  { tab: 'commands', title: '① Emergency Quick-Access', text: 'Critical phrases like "I need help" and "You are safe" are pinned at the top for one-tap access during emergencies. Scrollable strip — always visible.' },
+  { tab: 'commands', title: '② Command Library', text: 'All 70 perioperative phrases from LinguaMed across 7 surgical phases. Tap any phrase to show the ASL sign to your patient on a full-screen overlay.' },
+  { tab: 'commands', title: '③ ASL Signing Overlay', text: 'A humanoid avatar signs each phrase with animated arm positions. The patient sees clear text and visual signing. (Demo: static poses — production will use pre-recorded ASL videos.)', action: () => showASLSign('You are safe') },
+  { tab: 'voice', title: '④ Voice → ASL Match', text: 'Speak naturally — the app matches your words to the phrasebook with a confidence meter showing match quality. One tap to show the ASL sign.' },
+  { tab: 'camera', title: '⑤ Hand Tracking (MediaPipe)', text: 'Real-time hand landmark detection using Google MediaPipe. Tracks 21 joints per hand with skeleton overlay — the foundation for ASL-to-text recognition.' },
+  { tab: null, mode: 'patient', title: '⑥ Patient Mode', text: 'A simplified, patient-facing interface. Large buttons for Yes/No/Help/Repeat. Camera with live transcript shows detected signs in real time for the provider to read.' },
+  { tab: null, mode: 'patient', title: '⑦ Pain Body Map', text: 'The patient points to their pain location on an interactive body map, then rates severity 0–10. Logs area + level for accurate clinical documentation.' },
+  { tab: 'log', title: '⑧ Session Log', text: 'Every interaction — voice commands, detected signs, patient responses, pain reports — is timestamped and logged. Ready for EMR integration and research data collection.' },
+];
+let demoIdx = -1;
+let demoActive = false;
+
+function toggleDemo() {
+  if(demoActive) { closeDemo(); return; }
+  demoActive = true;
+  demoIdx = 0;
+  document.getElementById('demoFab').textContent = '✕';
+  showDemoStep();
+}
+
+function closeDemo() {
+  demoActive = false;
+  demoIdx = -1;
+  document.getElementById('demoFab').textContent = '▶';
+  document.getElementById('demoTooltip').classList.remove('active');
+  // Return to provider mode when demo ends
+  if(currentMode === 'patient') switchMode('provider');
+}
+
+function showDemoStep() {
+  const step = demoSteps[demoIdx];
+  // Handle mode switching for patient mode demo steps
+  if(step.mode === 'patient') {
+    switchMode('patient');
+  } else {
+    if(currentMode === 'patient') switchMode('provider');
+    if(step.tab) switchTab(step.tab);
+  }
+  const tooltip = document.getElementById('demoTooltip');
+  const dots = demoSteps.map((_, i) =>
+    `<div class="demo-dot${i === demoIdx ? ' active' : ''}"></div>`
+  ).join('');
+  const btnText = demoIdx < demoSteps.length - 1 ? 'Next' : 'Done';
+  tooltip.innerHTML = `
+    <h3>${step.title}</h3>
+    <p>${step.text}</p>
+    <div class="demo-nav">
+      <div class="demo-dots">${dots}</div>
+      <button class="demo-btn" onclick="nextDemoStep()">${btnText}</button>
+    </div>
+  `;
+  tooltip.classList.add('active');
+  if(step.action) setTimeout(step.action, 600);
+}
+
+function nextDemoStep() {
+  demoIdx++;
+  if(demoIdx >= demoSteps.length) { closeDemo(); return; }
+  showDemoStep();
+}
+
+// ===== COMMAND DATA (from LinguaMed MADE Labs) =====
+const commandData = {
+  "All": [],
+  "Preop / Airway": [
+    "Open your mouth", "Stick out your tongue", "Show me your teeth",
+    "Say \"ah\"", "Smile", "Tilt your head back", "Lift your chin",
+    "Turn your head to the left", "Turn your head to the right",
+    "Follow my finger", "Look left", "Look right", "Look at me",
+    "Bite gently", "Don't bite", "Relax your jaw", "Relax your neck",
+    "Open your eyes wide", "Breathe through your mouth",
+    "Keep breathing normally", "Take a deep breath", "Big breath in",
+    "Breathe in", "Breathe out", "Breathe in and out", "Breathe normally",
+    "Hold your breath", "Lie back", "Don't move your head"
+  ],
+  "Induction / Sedation": [
+    "You will feel sleepy", "Medicine is going in",
+    "You will feel a pinch", "You may feel a small pinch",
+    "Sharp poke", "You may feel pressure", "You might feel burning",
+    "Try to relax", "Close your eyes", "Breathe normally",
+    "Take a deep breath", "Try to take a big breath",
+    "Count backwards from ten", "You will hear some noise",
+    "Do not move", "Try to stay still", "Stay still for a moment",
+    "Relax your body", "Relax your arms", "Keep your hands down",
+    "Do not pull on the tube"
+  ],
+  "Regional Block": [
+    "You will feel a pinch", "You may feel a small pinch",
+    "Sharp poke", "Numbness is normal", "You may feel pressure",
+    "You might feel burning", "Try not to move", "Do not move",
+    "Stay still for a moment", "Try to stay still",
+    "Try to relax", "Relax your body",
+    "Squeeze my hand", "Let it out",
+    "We are almost done", "It will be over soon",
+    "Breathe normally", "Keep breathing normally"
+  ],
+  "Emergence / Wake-Up": [
+    "You are waking up", "Surgery is over", "Everything went well",
+    "Open your eyes", "Open your eyes and look at me",
+    "Breathe in", "Breathe out", "Take a deep breath",
+    "Cough", "Cough for me", "Cough again",
+    "Try to take a big breath", "Big breath in",
+    "Squeeze my hand", "Move your fingers", "Wiggle your toes",
+    "Lift your head", "Follow my finger",
+    "Don't worry", "We'll help you"
+  ],
+  "PACU / Recovery": [
+    "You're in the recovery room", "Surgery is over",
+    "Everything went well", "You are safe",
+    "Breathe normally", "Keep breathing normally",
+    "Try to relax", "Don't worry",
+    "Squeeze my hand", "Move your fingers", "Wiggle your toes",
+    "We are taking care of you", "We'll help you",
+    "Keep your hands down", "Do not pull on the tube",
+    "Try to stay still"
+  ],
+  "Reassurance": [
+    "You are safe", "Don't worry", "We are taking care of you",
+    "We'll help you", "You're doing great", "We are almost done",
+    "It will be over soon", "Everything went well",
+    "Try to relax", "Numbness is normal", "I need help"
+  ]
+};
+
+// Build "All" from unique commands
+const allUnique = new Set();
+Object.keys(commandData).forEach(k => { if(k!=='All') commandData[k].forEach(c => allUnique.add(c)); });
+commandData["All"] = [...allUnique].sort();
+
+// ===== ASL HUMANOID POSE DATA =====
+// Each pose defines arm joint positions for the SVG humanoid silhouette
+// LU = left upper arm endpoint, LF = left forearm endpoint (hand position)
+// RU = right upper arm endpoint, RF = right forearm endpoint (hand position)
+// Coordinates in SVG viewBox space (260x320)
+const signPoses = {
+  "default": [
+    { LU:[60,145], LF:[45,105], RU:[200,145], RF:[215,105] },
+    { LU:[55,130], LF:[35,90],  RU:[205,130], RF:[225,90]  },
+    { LU:[65,155], LF:[50,120], RU:[195,140], RF:[210,100] },
+    { LU:[50,135], LF:[30,100], RU:[210,135], RF:[230,100] },
+    { LU:[60,145], LF:[45,105], RU:[200,145], RF:[215,105] },
+  ],
+  "breathe": [
+    { LU:[55,160], LF:[40,135], RU:[205,160], RF:[220,135] },
+    { LU:[50,140], LF:[30,105], RU:[210,140], RF:[230,105] },
+    { LU:[55,160], LF:[40,135], RU:[205,160], RF:[220,135] },
+    { LU:[50,140], LF:[30,105], RU:[210,140], RF:[230,105] },
+  ],
+  "reassure": [
+    { LU:[65,150], LF:[55,120], RU:[195,150], RF:[205,120] },
+    { LU:[60,135], LF:[45,100], RU:[200,135], RF:[215,100] },
+    { LU:[55,145], LF:[40,115], RU:[205,130], RF:[220,90]  },
+    { LU:[65,140], LF:[55,105], RU:[195,145], RF:[205,115] },
+  ],
+  "look": [
+    { LU:[55,140], LF:[30,115], RU:[205,155], RF:[220,130] },
+    { LU:[65,155], LF:[50,130], RU:[195,140], RF:[170,115] },
+    { LU:[60,135], LF:[40,100], RU:[200,150], RF:[215,125] },
+  ],
+  "stop": [
+    { LU:[55,130], LF:[35,80],  RU:[205,130], RF:[225,80]  },
+    { LU:[50,125], LF:[30,75],  RU:[210,125], RF:[230,75]  },
+    { LU:[55,130], LF:[35,80],  RU:[205,130], RF:[225,80]  },
+  ],
+  "pain": [
+    { LU:[70,160], LF:[80,185], RU:[190,155], RF:[175,130] },
+    { LU:[65,155], LF:[55,130], RU:[195,145], RF:[185,115] },
+    { LU:[60,165], LF:[65,190], RU:[200,150], RF:[210,120] },
+  ],
+};
+
+function getGestureType(phrase) {
+  const p = phrase.toLowerCase();
+  if(p.includes('breath') || p.includes('big breath')) return 'breathe';
+  if(p.includes('safe') || p.includes('worry') || p.includes('help') || p.includes('care') || p.includes('great') || p.includes('well') || p.includes('relax')) return 'reassure';
+  if(p.includes('look') || p.includes('eye') || p.includes('follow') || p.includes('finger')) return 'look';
+  if(p.includes('don\'t') || p.includes('do not') || p.includes('still') || p.includes('stop') || p.includes('hold') || p.includes('move')) return 'stop';
+  if(p.includes('pinch') || p.includes('burn') || p.includes('pressure') || p.includes('poke') || p.includes('numb')) return 'pain';
+  return 'default';
+}
+
+let currentCategory = 'All';
+let sessionLogEntries = [];
+let isListening = false;
+let cameraActive = false;
+let recognition = null;
+let aslAnimTimer = null;
+let currentSigningPhrase = '';
+
+// ===== INIT =====
+function init() {
+  renderCategoryPills();
+  renderCommands();
+  renderQuickPhrases();
+  initSpeechRecognition();
+  addLogEntry('system', 'Session started — bidirectional mode');
+}
+
+// ===== TABS =====
+function switchTab(tab) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + tab).classList.add('active');
+  document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
+  document.querySelector(`[data-tab="${tab}"]`).classList.add('active');
+}
+
+// ===== CATEGORY PILLS =====
+function renderCategoryPills() {
+  const container = document.getElementById('categoryPills');
+  container.innerHTML = '';
+  Object.keys(commandData).forEach(cat => {
+    const pill = document.createElement('div');
+    pill.className = 'pill' + (cat === currentCategory ? ' active' : '');
+    pill.textContent = cat;
+    pill.onclick = () => { currentCategory = cat; renderCategoryPills(); renderCommands(); };
+    container.appendChild(pill);
+  });
+}
+
+// ===== RENDER COMMANDS =====
+function renderCommands() {
+  const grid = document.getElementById('commandGrid');
+  const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+  let cmds = commandData[currentCategory];
+  if(searchTerm) cmds = cmds.filter(c => c.toLowerCase().includes(searchTerm));
+  grid.innerHTML = '';
+  if(cmds.length === 0) {
+    grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px 20px;color:var(--text-tertiary);font-size:14px;">No commands found</div>';
+    return;
+  }
+  cmds.forEach(cmd => {
+    const btn = document.createElement('div');
+    btn.className = 'cmd-btn';
+    btn.innerHTML = cmd + '<span class="cmd-icon">🤟</span>';
+    btn.onclick = () => showASLSign(cmd, btn);
+    grid.appendChild(btn);
+  });
+}
+
+function filterCommands() { renderCommands(); }
+
+// ===== ASL SIGNING OVERLAY =====
+function showASLSign(phrase, btnEl) {
+  currentSigningPhrase = phrase;
+  const overlay = document.getElementById('aslOverlay');
+  const phraseText = document.getElementById('aslPhraseText');
+  const subtitle = document.getElementById('aslSubtitle');
+  const progressFill = document.getElementById('aslProgressFill');
+  const progressLabel = document.getElementById('aslProgressLabel');
+  const actionBtns = document.getElementById('aslActionBtns');
+
+  // Highlight the tapped button
+  if(btnEl) {
+    btnEl.classList.add('signing');
+    setTimeout(() => btnEl.classList.remove('signing'), 2000);
+  }
+
+  // Setup overlay
+  phraseText.textContent = phrase;
+  subtitle.textContent = 'Now Signing';
+  progressFill.style.width = '0%';
+  progressLabel.textContent = 'Signing...';
+  actionBtns.style.display = 'none';
+  document.getElementById('patientResponsePanel').style.display = 'none';
+  overlay.classList.add('active');
+
+  // Start humanoid animation
+  const gestureType = getGestureType(phrase);
+  const poses = signPoses[gestureType];
+  startHumanoidAnimation(poses, gestureType);
+
+  // Animate progress (3.5 second signing duration)
+  const duration = 3500;
+  const startTime = Date.now();
+  const progressInterval = setInterval(() => {
+    const elapsed = Date.now() - startTime;
+    const pct = Math.min(100, (elapsed / duration) * 100);
+    progressFill.style.width = pct + '%';
+    if(pct >= 100) {
+      clearInterval(progressInterval);
+      subtitle.textContent = 'Signed — Patient can respond below';
+      progressLabel.textContent = 'Complete';
+      actionBtns.style.display = 'flex';
+      document.getElementById('patientResponsePanel').style.display = 'flex';
+      stopHumanoidAnimation();
+      addLogEntry('cmd', 'Signed to patient: ' + phrase);
+    }
+  }, 50);
+
+  // Store the interval for cleanup
+  overlay._progressInterval = progressInterval;
+}
+
+// Phantom hand shape definitions per gesture type
+// Each shape = array of finger configs: [x1,y1,x2,y2,width,opacity]
+const handShapes = {
+  'default': { // Open palm — all fingers spread
+    fingers: [
+      [0,-12,0,-24,2.5,0.9],[-5,-11,-10,-23,2,0.85],[5,-11,10,-23,2,0.85],
+      [-9,-8,-16,-18,1.8,0.7],[9,-8,16,-18,1.8,0.7]
+    ], label: 'Open Palm'
+  },
+  'breathe': { // Cupped hands — fingers gently curved inward
+    fingers: [
+      [0,-12,-2,-22,2.5,0.9],[-5,-11,-9,-20,2,0.85],[5,-11,9,-20,2,0.85],
+      [-9,-8,-13,-14,1.8,0.6],[9,-8,13,-14,1.8,0.6]
+    ], label: 'Cupped'
+  },
+  'reassure': { // Flat palm down — fingers together, calming gesture
+    fingers: [
+      [0,-12,0,-23,2.8,0.95],[-4,-12,-4,-22,2.2,0.85],[4,-12,4,-22,2.2,0.85],
+      [-8,-11,-8,-20,1.8,0.7],[8,-11,8,-20,1.8,0.7]
+    ], label: 'Flat Palm'
+  },
+  'look': { // Pointing — index out, others curled
+    fingers: [
+      [0,-12,0,-26,3,1],[-5,-10,-7,-14,1.5,0.4],[5,-10,7,-14,1.5,0.4],
+      [-8,-7,-10,-10,1.2,0.3],[8,-7,10,-10,1.2,0.3]
+    ], label: 'Pointing'
+  },
+  'stop': { // Raised palm — stiff fingers spread wide
+    fingers: [
+      [0,-12,0,-28,3,1],[-6,-11,-12,-26,2.5,0.95],[6,-11,12,-26,2.5,0.95],
+      [-11,-8,-18,-20,2,0.8],[11,-8,18,-20,2,0.8]
+    ], label: 'Stop'
+  },
+  'pain': { // Fist — fingers curled tight
+    fingers: [
+      [0,-10,-2,-14,2.5,0.6],[-4,-9,-6,-12,2,0.5],[4,-9,6,-12,2,0.5],
+      [-7,-6,-8,-8,1.5,0.4],[7,-6,8,-8,1.5,0.4]
+    ], label: 'Fist'
+  },
+};
+
+function applyHandShape(gestureType) {
+  const shape = handShapes[gestureType] || handShapes['default'];
+  ['L','R'].forEach(side => {
+    const shapeEl = document.getElementById('handShape' + side);
+    if(!shapeEl) return;
+    const lines = shapeEl.querySelectorAll('line');
+    shape.fingers.forEach((f, i) => {
+      if(lines[i]) {
+        const mirror = side === 'R' ? -1 : 1; // mirror for right hand
+        lines[i].setAttribute('x1', f[0] * mirror);
+        lines[i].setAttribute('y1', f[1]);
+        lines[i].setAttribute('x2', f[2] * mirror);
+        lines[i].setAttribute('y2', f[3]);
+        lines[i].setAttribute('stroke-width', f[4]);
+        lines[i].setAttribute('opacity', f[5]);
+      }
+    });
+  });
+}
+
+function startHumanoidAnimation(poses, gestureType) {
+  const figure = document.getElementById('humanoidFigure');
+  const armLU = document.getElementById('armLU');
+  const armLF = document.getElementById('armLF');
+  const handL = document.getElementById('handL');
+  const armRU = document.getElementById('armRU');
+  const armRF = document.getElementById('armRF');
+  const handR = document.getElementById('handR');
+  const shapeL = document.getElementById('handShapeL');
+  const shapeR = document.getElementById('handShapeR');
+  let frameIdx = 0;
+
+  figure.classList.add('animating');
+  handL.classList.add('animating');
+  handR.classList.add('animating');
+  if(shapeL) shapeL.classList.add('animating');
+  if(shapeR) shapeR.classList.add('animating');
+
+  // Apply gesture-specific hand shape
+  applyHandShape(gestureType || 'default');
+
+  function applyPose(pose) {
+    armLU.setAttribute('x2', pose.LU[0]);
+    armLU.setAttribute('y2', pose.LU[1]);
+    armLF.setAttribute('x1', pose.LU[0]);
+    armLF.setAttribute('y1', pose.LU[1]);
+    armLF.setAttribute('x2', pose.LF[0]);
+    armLF.setAttribute('y2', pose.LF[1]);
+    handL.setAttribute('transform', `translate(${pose.LF[0]},${pose.LF[1]})`);
+
+    armRU.setAttribute('x2', pose.RU[0]);
+    armRU.setAttribute('y2', pose.RU[1]);
+    armRF.setAttribute('x1', pose.RU[0]);
+    armRF.setAttribute('y1', pose.RU[1]);
+    armRF.setAttribute('x2', pose.RF[0]);
+    armRF.setAttribute('y2', pose.RF[1]);
+    handR.setAttribute('transform', `translate(${pose.RF[0]},${pose.RF[1]})`);
+  }
+
+  function nextFrame() {
+    applyPose(poses[frameIdx % poses.length]);
+    frameIdx++;
+  }
+  nextFrame();
+  aslAnimTimer = setInterval(nextFrame, 700);
+}
+
+function stopHumanoidAnimation() {
+  if(aslAnimTimer) { clearInterval(aslAnimTimer); aslAnimTimer = null; }
+  const figure = document.getElementById('humanoidFigure');
+  if(figure) figure.classList.remove('animating');
+  ['handL','handR','handShapeL','handShapeR'].forEach(id => {
+    const el = document.getElementById(id);
+    if(el) el.classList.remove('animating');
+  });
+}
+
+function replayASL() {
+  closeASLOverlay();
+  setTimeout(() => showASLSign(currentSigningPhrase), 200);
+}
+
+function closeASLOverlay() {
+  const overlay = document.getElementById('aslOverlay');
+  overlay.classList.remove('active');
+  stopHumanoidAnimation();
+  if(overlay._progressInterval) clearInterval(overlay._progressInterval);
+}
+
+// ===== QUICK PHRASES =====
+function renderQuickPhrases() {
+  const container = document.getElementById('quickPhrases');
+  const phrases = ['You are safe', "Don't worry", 'Surgery is over', 'Take a deep breath', 'Everything went well'];
+  const icons = ['💚', '🤝', '✅', '🫁', '⭐'];
+  const bgs = ['#E8F8ED', '#E8F2FF', '#F3E8FF', '#FFF3E0', '#FFE8EE'];
+  container.innerHTML = '';
+  phrases.forEach((p, i) => {
+    const div = document.createElement('div');
+    div.className = 'quick-action';
+    div.innerHTML = `
+      <div class="qa-icon" style="background:${bgs[i]}">${icons[i]}</div>
+      <div class="qa-text">${p}</div>
+      <div class="qa-arrow">🤟</div>
+    `;
+    div.onclick = () => showASLSign(p);
+    container.appendChild(div);
+  });
+}
+
+// ===== SPEECH RECOGNITION =====
+function initSpeechRecognition() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if(!SR) return;
+  recognition = new SR();
+  recognition.continuous = false;
+  recognition.interimResults = true;
+  recognition.lang = 'en-US';
+
+  recognition.onresult = (e) => {
+    const transcript = Array.from(e.results).map(r => r[0].transcript).join('');
+    document.getElementById('voiceTranscript').textContent = transcript;
+    if(e.results[0].isFinal) {
+      matchCommand(transcript);
+      addLogEntry('voice', 'Provider said: ' + transcript);
+    }
+  };
+  recognition.onerror = () => {
+    isListening = false;
+    document.getElementById('micBtn').classList.remove('listening');
+    document.getElementById('voiceStatus').textContent = 'Tap to speak';
+  };
+  recognition.onend = () => {
+    isListening = false;
+    document.getElementById('micBtn').classList.remove('listening');
+    document.getElementById('voiceStatus').textContent = 'Tap to speak';
+  };
+}
+
+function toggleMic() {
+  if(!recognition) {
+    document.getElementById('voiceStatus').textContent = 'Speech not supported';
+    return;
+  }
+  if(isListening) {
+    recognition.stop();
+  } else {
+    recognition.start();
+    isListening = true;
+    document.getElementById('micBtn').classList.add('listening');
+    document.getElementById('voiceStatus').textContent = 'Listening...';
+    document.getElementById('voiceTranscript').textContent = '...';
+  }
+}
+
+function matchCommand(transcript) {
+  const t = transcript.toLowerCase().trim();
+  let bestMatch = null; let bestScore = 0;
+
+  commandData['All'].forEach(cmd => {
+    const c = cmd.toLowerCase();
+    const tWords = t.split(/\s+/);
+    const cWords = c.split(/\s+/);
+    let overlap = 0;
+    tWords.forEach(w => { if(cWords.includes(w)) overlap++; });
+    const score = overlap / Math.max(tWords.length, cWords.length);
+    if(score > bestScore) { bestScore = score; bestMatch = cmd; }
+    if(c.includes(t) || t.includes(c)) { bestScore = 1; bestMatch = cmd; }
+  });
+
+  const card = document.getElementById('matchedCommandCard');
+  if(bestMatch && bestScore > 0.3) {
+    const confidence = Math.round(bestScore * 100);
+    const confColor = confidence >= 80 ? 'var(--green)' : confidence >= 50 ? 'var(--orange)' : 'var(--red)';
+    const confLabel = confidence >= 80 ? 'High Confidence' : confidence >= 50 ? 'Moderate' : 'Low Confidence';
+    card.innerHTML = `
+      <div class="voice-match-card">
+        <div class="confidence-label">Match Result</div>
+        <div class="confidence-meter">
+          <div style="flex:1;">
+            <div class="confidence-bar-wrap">
+              <div class="confidence-bar-fill" style="width:${confidence}%;background:${confColor};"></div>
+            </div>
+          </div>
+          <div class="confidence-pct" style="color:${confColor};">${confidence}%</div>
+        </div>
+        <div class="voice-match-phrase" style="color:${confColor};">${bestMatch}</div>
+        <div style="font-size:12px;color:var(--text-secondary);margin-bottom:16px;">${confLabel}</div>
+        <button onclick="showASLSign('${bestMatch.replace(/'/g, "\\'")}')" style="
+          background: linear-gradient(135deg, var(--blue), var(--purple));
+          color:white;border:none;border-radius:100px;
+          padding:14px 32px;font-size:15px;font-weight:600;cursor:pointer;
+          font-family:inherit; box-shadow: 0 4px 12px rgba(0,122,255,0.3);
+          display:inline-flex; align-items:center; gap:8px;
+          transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1);"
+          onmousedown="this.style.transform='scale(0.95)'" onmouseup="this.style.transform='scale(1)'">
+          🤟 Show ASL to Patient
+        </button>
+      </div>
+    `;
+  } else {
+    card.innerHTML = `<div style="text-align:center;padding:16px;"><div style="font-size:32px;margin-bottom:8px;">🔍</div><div style="color:var(--orange);font-size:15px;font-weight:600;">No close match found</div><div style="color:var(--text-tertiary);font-size:13px;margin-top:4px;">Try speaking more clearly or use a different phrase</div></div>`;
+  }
+}
+
+// ===== CAMERA + MEDIAPIPE HANDS (Patient → Doctor) =====
+let mpHands = null;
+let mpCamera = null;
+let handDetections = [];
+
+function initMediaPipeHands() {
+  const statusEl = document.getElementById('handStatus');
+  try {
+    mpHands = new Hands({
+      locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/${file}`
+    });
+    mpHands.setOptions({
+      maxNumHands: 2,
+      modelComplexity: 1,
+      minDetectionConfidence: 0.6,
+      minTrackingConfidence: 0.5,
+    });
+    mpHands.onResults(onHandResults);
+    statusEl.innerHTML = '<div class="dot"></div>Hand model loaded — waiting for camera';
+  } catch(e) {
+    statusEl.innerHTML = '<div class="dot"></div>MediaPipe loading...';
+    // Retry after scripts load
+    setTimeout(initMediaPipeHands, 2000);
+  }
+}
+
+function onHandResults(results) {
+  const canvas = document.getElementById('handCanvas');
+  const ctx = canvas.getContext('2d');
+  const statusEl = document.getElementById('handStatus');
+  const countEl = document.getElementById('landmarkCount');
+
+  canvas.width = results.image.width;
+  canvas.height = results.image.height;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  if(results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+    const numHands = results.multiHandLandmarks.length;
+    statusEl.className = 'hand-status tracking';
+    statusEl.innerHTML = `<div class="dot"></div>${numHands} hand${numHands > 1 ? 's' : ''} tracked — 21 landmarks each`;
+    countEl.textContent = `${numHands * 21} landmarks`;
+    countEl.classList.add('visible');
+
+    for(const landmarks of results.multiHandLandmarks) {
+      // Draw connections (skeleton lines)
+      drawConnectors(ctx, landmarks, HAND_CONNECTIONS, { color: 'rgba(0,122,255,0.6)', lineWidth: 2 });
+      // Draw landmarks (joint dots)
+      drawLandmarks(ctx, landmarks, { color: 'rgba(0,122,255,0.9)', lineWidth: 1, radius: 3 });
+      // Highlight fingertips with larger glow dots
+      const tips = [4, 8, 12, 16, 20]; // thumb, index, middle, ring, pinky tips
+      tips.forEach(i => {
+        const lm = landmarks[i];
+        ctx.beginPath();
+        ctx.arc(lm.x * canvas.width, lm.y * canvas.height, 6, 0, 2 * Math.PI);
+        ctx.fillStyle = 'rgba(175,82,222,0.8)';
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(lm.x * canvas.width, lm.y * canvas.height, 10, 0, 2 * Math.PI);
+        ctx.strokeStyle = 'rgba(175,82,222,0.3)';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      });
+    }
+
+    // Simple gesture detection for demo
+    detectSimpleGestures(results.multiHandLandmarks, results.multiHandedness);
+  } else {
+    statusEl.className = 'hand-status';
+    statusEl.innerHTML = '<div class="dot"></div>Scanning for hands...';
+    countEl.classList.remove('visible');
+  }
+}
+
+// Basic gesture detection — recognize simple hand shapes for demo
+function detectSimpleGestures(handLandmarks, handedness) {
+  if(!cameraActive) return;
+  const now = Date.now();
+  if(now - (detectSimpleGestures._lastDetect || 0) < 4000) return;
+
+  for(let h = 0; h < handLandmarks.length; h++) {
+    const lm = handLandmarks[h];
+    // Check if all fingers extended (open hand) → "Stop" or "Hello"
+    const fingersUp = countFingersUp(lm);
+
+    let detected = null;
+    if(fingersUp === 5) {
+      detected = { sign: 'Stop / Hello', meaning: 'Patient signs: Stop or Hello (open hand)' };
+    } else if(fingersUp === 0) {
+      detected = { sign: 'Fist (Yes)', meaning: 'Patient confirms: Yes (fist)' };
+    } else if(fingersUp === 1 && isIndexUp(lm)) {
+      detected = { sign: 'Point (Attention)', meaning: 'Patient requests: Attention (pointing)' };
+    } else if(fingersUp === 2 && isVSign(lm)) {
+      detected = { sign: 'Peace / OK', meaning: 'Patient confirms: OK (peace sign)' };
+    }
+
+    if(detected) {
+      detectSimpleGestures._lastDetect = now;
+      showDetection(detected);
+      return;
+    }
+  }
+}
+
+function countFingersUp(lm) {
+  let count = 0;
+  // Thumb: tip.x vs IP joint.x (for right hand, tip more right = up)
+  if(Math.abs(lm[4].x - lm[2].x) > 0.05) count++;
+  // Index: tip above PIP
+  if(lm[8].y < lm[6].y) count++;
+  // Middle
+  if(lm[12].y < lm[10].y) count++;
+  // Ring
+  if(lm[16].y < lm[14].y) count++;
+  // Pinky
+  if(lm[20].y < lm[18].y) count++;
+  return count;
+}
+
+function isIndexUp(lm) {
+  return lm[8].y < lm[6].y && lm[12].y > lm[10].y && lm[16].y > lm[14].y;
+}
+
+function isVSign(lm) {
+  return lm[8].y < lm[6].y && lm[12].y < lm[10].y && lm[16].y > lm[14].y;
+}
+
+function showDetection(item) {
+  const signEl = document.getElementById('detectedSign');
+  const logContainer = document.getElementById('aslLog');
+  signEl.textContent = 'Detected: "' + item.sign + '"';
+  signEl.classList.add('show');
+  handDetections.unshift(item);
+  if(handDetections.length > 10) handDetections.pop();
+  addLogEntry('sign', item.meaning);
+
+  logContainer.innerHTML = handDetections.map(d => `
+    <div class="log-entry">
+      <div class="log-icon sign">🤟</div>
+      <div>
+        <div class="log-text">${d.meaning}</div>
+        <div class="log-time">Just now</div>
+      </div>
+    </div>
+  `).join('');
+
+  // Also feed Patient Mode transcript
+  const patientSignEl = document.getElementById('patientDetectedSign');
+  if(patientSignEl && currentMode === 'patient') {
+    patientSignEl.textContent = 'Detected: "' + item.sign + '"';
+    patientSignEl.classList.add('show');
+    setTimeout(() => patientSignEl.classList.remove('show'), 2500);
+  }
+  addPatientTranscript(item.meaning, item.sign === 'Open Hand' ? '✋' : item.sign === 'Fist' ? '✊' : item.sign === 'Pointing' ? '☝️' : item.sign === 'Peace / V' ? '✌️' : '🤟');
+
+  setTimeout(() => signEl.classList.remove('show'), 2500);
+}
+
+function toggleCamera() {
+  if(cameraActive) {
+    if(mpCamera) { mpCamera.stop(); mpCamera = null; }
+    const video = document.getElementById('cameraFeed');
+    if(video.srcObject) {
+      video.srcObject.getTracks().forEach(t => t.stop());
+      video.srcObject = null;
+    }
+    cameraActive = false;
+    document.getElementById('cameraOverlay').classList.remove('hidden');
+    document.getElementById('handStatus').className = 'hand-status';
+    document.getElementById('handStatus').innerHTML = '<div class="dot"></div>Camera off';
+    document.getElementById('landmarkCount').classList.remove('visible');
+    const ctx = document.getElementById('handCanvas').getContext('2d');
+    ctx.clearRect(0, 0, 9999, 9999);
+    addLogEntry('system', 'Camera stopped');
+  } else {
+    const video = document.getElementById('cameraFeed');
+    const statusEl = document.getElementById('handStatus');
+    statusEl.innerHTML = '<div class="dot"></div>Starting camera...';
+
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: 640, height: 480 } })
+      .then(stream => {
+        video.srcObject = stream;
+        document.getElementById('cameraOverlay').classList.add('hidden');
+        cameraActive = true;
+        addLogEntry('system', 'Camera started — MediaPipe hand tracking active');
+
+        // Initialize MediaPipe if needed
+        if(!mpHands) initMediaPipeHands();
+
+        // Start MediaPipe camera loop
+        if(mpHands) {
+          statusEl.innerHTML = '<div class="dot"></div>Hand tracking active — show your hands';
+          mpCamera = new Camera(video, {
+            onFrame: async () => {
+              if(mpHands && cameraActive) await mpHands.send({ image: video });
+            },
+            width: 640, height: 480,
+          });
+          mpCamera.start();
+        }
+      })
+      .catch((err) => {
+        addLogEntry('system', 'Camera access denied');
+        statusEl.innerHTML = '<div class="dot"></div>Camera denied — check permissions';
+      });
+  }
+}
+
+// ===== SESSION LOG =====
+function addLogEntry(type, text) {
+  const now = new Date();
+  const time = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  sessionLogEntries.unshift({ type, text, time });
+  renderLog();
+}
+
+function renderLog() {
+  const container = document.getElementById('sessionLog');
+  if(sessionLogEntries.length === 0) {
+    container.innerHTML = '<div class="log-empty">Session events will appear here</div>';
+    return;
+  }
+  container.innerHTML = sessionLogEntries.slice(0, 50).map(entry => {
+    const iconMap = { voice: '🎙️', sign: '🤟', cmd: '🤟', system: '⚙️' };
+    const classMap = { voice: 'voice', sign: 'sign', cmd: 'cmd', system: 'cmd' };
+    return `
+      <div class="log-entry">
+        <div class="log-icon ${classMap[entry.type]}">${iconMap[entry.type]}</div>
+        <div>
+          <div class="log-text">${entry.text}</div>
+          <div class="log-time">${entry.time}</div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function clearLog() { sessionLogEntries = []; renderLog(); }
+
+// ===== MODE SWITCHING =====
+let currentMode = 'provider';
+let patientCameraActive = false;
+let patientMpCamera = null;
+
+function switchMode(mode) {
+  currentMode = mode;
+  const app = document.getElementById('app');
+  const providerBtn = document.getElementById('modeProvider');
+  const patientBtn = document.getElementById('modePatient');
+  const patientScreen = document.getElementById('patientModeScreen');
+
+  if(mode === 'patient') {
+    app.classList.add('patient-active');
+    patientScreen.classList.add('active');
+    providerBtn.classList.remove('active');
+    patientBtn.classList.add('active');
+    addLogEntry('system', 'Switched to Patient Mode');
+  } else {
+    app.classList.remove('patient-active');
+    patientScreen.classList.remove('active');
+    providerBtn.classList.add('active');
+    patientBtn.classList.remove('active');
+    // Stop patient camera if running
+    if(patientCameraActive) stopPatientCamera();
+    addLogEntry('system', 'Switched to Provider Mode');
+  }
+}
+
+function togglePatientCamera() {
+  if(patientCameraActive) {
+    stopPatientCamera();
+    return;
+  }
+  const video = document.getElementById('patientCamFeed');
+  const status = document.getElementById('patientCamStatus');
+  const overlay = document.getElementById('patientCamOverlay');
+  status.textContent = 'Starting camera...';
+
+  navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: 640, height: 480 } })
+    .then(stream => {
+      video.srcObject = stream;
+      overlay.classList.add('hidden');
+      patientCameraActive = true;
+      status.textContent = '✋ Show your hands to communicate';
+      addLogEntry('system', 'Patient camera started');
+
+      if(!mpHands) initMediaPipeHands();
+      if(mpHands) {
+        patientMpCamera = new Camera(video, {
+          onFrame: async () => {
+            if(mpHands && patientCameraActive) {
+              await mpHands.send({ image: video });
+              // Draw on patient canvas too
+              const canvas = document.getElementById('patientHandCanvas');
+              const srcCanvas = document.getElementById('handCanvas');
+              if(canvas && srcCanvas) {
+                canvas.width = srcCanvas.width;
+                canvas.height = srcCanvas.height;
+                const ctx = canvas.getContext('2d');
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(srcCanvas, 0, 0);
+              }
+            }
+          },
+          width: 640, height: 480,
+        });
+        patientMpCamera.start();
+      }
+    })
+    .catch(() => {
+      status.textContent = 'Camera denied — check permissions';
+    });
+}
+
+function stopPatientCamera() {
+  if(patientMpCamera) { patientMpCamera.stop(); patientMpCamera = null; }
+  const video = document.getElementById('patientCamFeed');
+  if(video && video.srcObject) {
+    video.srcObject.getTracks().forEach(t => t.stop());
+    video.srcObject = null;
+  }
+  patientCameraActive = false;
+  document.getElementById('patientCamOverlay').classList.remove('hidden');
+  document.getElementById('patientCamStatus').textContent = 'Tap above to start hand tracking';
+}
+
+function patientQuickReply(type) {
+  const map = {
+    'yes': 'Patient responded: 👍 Yes / I understand',
+    'no': 'Patient responded: 👎 No / I don\'t understand',
+    'help': '🚨 Patient requesting HELP',
+    'repeat': 'Patient requested: 🔄 Repeat last sign',
+  };
+  addLogEntry('sign', map[type]);
+
+  // Visual feedback — flash the tapped button
+  const btns = document.querySelectorAll('.patient-resp-big');
+  btns.forEach(b => b.style.opacity = '0.4');
+  const activeBtn = document.querySelector(`.patient-resp-big.${type === 'repeat' ? 'repeat-req' : type}`);
+  if(activeBtn) {
+    activeBtn.style.opacity = '1';
+    activeBtn.style.transform = 'scale(1.03)';
+    activeBtn.style.boxShadow = '0 4px 20px rgba(0,0,0,0.1)';
+  }
+  setTimeout(() => {
+    btns.forEach(b => { b.style.opacity = '1'; b.style.transform = ''; b.style.boxShadow = ''; });
+  }, 600);
+}
+
+// ===== PATIENT TRANSCRIPT =====
+let patientTranscriptEntries = [];
+
+function addPatientTranscript(text, icon) {
+  const now = new Date();
+  const time = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit' });
+  patientTranscriptEntries.unshift({ text, icon: icon || '🤟', time });
+  if(patientTranscriptEntries.length > 20) patientTranscriptEntries.pop();
+  renderPatientTranscript();
+}
+
+function renderPatientTranscript() {
+  const feed = document.getElementById('patientTranscriptFeed');
+  if(!feed) return;
+  if(patientTranscriptEntries.length === 0) {
+    feed.innerHTML = '<div class="transcript-empty">Start the camera — detected signs will appear here in real time</div>';
+    return;
+  }
+  feed.innerHTML = patientTranscriptEntries.map(e => `
+    <div class="transcript-entry">
+      <div class="t-icon">${e.icon}</div>
+      <div>
+        <div class="t-text">${e.text}</div>
+        <div class="t-time">${e.time}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+// ===== BODY MAP =====
+let selectedBodyZone = null;
+let selectedSeverity = null;
+
+const zoneNames = {
+  'head': 'Head', 'neck': 'Neck', 'chest': 'Chest', 'abdomen': 'Abdomen',
+  'left-arm': 'Left Arm', 'right-arm': 'Right Arm',
+  'left-hand': 'Left Hand', 'right-hand': 'Right Hand',
+  'lower-back': 'Lower Back / Hip',
+  'left-leg': 'Left Leg', 'right-leg': 'Right Leg',
+  'left-foot': 'Left Foot', 'right-foot': 'Right Foot',
+};
+
+function selectBodyZone(zone) {
+  // Clear previous
+  document.querySelectorAll('.body-zone').forEach(z => z.classList.remove('selected'));
+  // Highlight selected
+  const el = document.querySelector(`.body-zone[data-zone="${zone}"]`);
+  if(el) el.classList.add('selected');
+  selectedBodyZone = zone;
+  selectedSeverity = null;
+  // Show severity panel
+  const info = document.getElementById('bodySelectionInfo');
+  info.style.display = 'block';
+  document.getElementById('bodySelArea').textContent = zoneNames[zone] || zone;
+  // Reset severity dots
+  document.querySelectorAll('.severity-dot').forEach(d => {
+    d.classList.remove('selected');
+    d.style.background = 'var(--card)';
+    d.style.color = 'var(--text-secondary)';
+  });
+  addLogEntry('sign', `Patient pointed to pain area: ${zoneNames[zone]}`);
+}
+
+function selectSeverity(val) {
+  selectedSeverity = val;
+  const dots = document.querySelectorAll('.severity-dot');
+  const colors = ['#34C759','#5AC54F','#8BC740','#C7C730','#E8C020','#FF9500','#FF7B00','#FF5C00','#FF3B30','#FF2D20','#CC1100'];
+  dots.forEach((d, i) => {
+    if(i <= val) {
+      d.classList.add('selected');
+      d.style.background = colors[i];
+      d.style.color = 'white';
+      d.style.borderColor = colors[i];
+    } else {
+      d.classList.remove('selected');
+      d.style.background = 'var(--card)';
+      d.style.color = 'var(--text-secondary)';
+    }
+  });
+  const severity = val <= 3 ? 'mild' : val <= 6 ? 'moderate' : 'severe';
+  const area = selectedBodyZone ? zoneNames[selectedBodyZone] : 'Unknown';
+  addLogEntry('sign', `Patient reported: ${area} pain — ${val}/10 (${severity})`);
+}
+
+// ===== DARK MODE =====
+function toggleDarkMode() {
+  const html = document.documentElement;
+  const btn = document.getElementById('darkToggle');
+  const themeColor = document.getElementById('themeColor');
+  const isDark = html.getAttribute('data-theme') === 'dark';
+  if(isDark) {
+    html.removeAttribute('data-theme');
+    btn.textContent = '☀️';
+    themeColor.content = '#f5f5f7';
+    localStorage.setItem('signbridge-theme', 'light');
+  } else {
+    html.setAttribute('data-theme', 'dark');
+    btn.textContent = '🌙';
+    themeColor.content = '#1C1C1E';
+    localStorage.setItem('signbridge-theme', 'dark');
+  }
+}
+
+// Restore theme preference
+(function() {
+  const saved = localStorage.getItem('signbridge-theme');
+  if(saved === 'dark') {
+    document.documentElement.setAttribute('data-theme', 'dark');
+    setTimeout(() => {
+      const btn = document.getElementById('darkToggle');
+      if(btn) btn.textContent = '🌙';
+      const tc = document.getElementById('themeColor');
+      if(tc) tc.content = '#1C1C1E';
+    }, 0);
+  }
+})();
+
+// ===== PATIENT RESPONSE =====
+function patientResponse(type) {
+  const responseMap = {
+    'understand': { text: 'Patient confirmed: ✓ Understands', icon: '✅' },
+    'repeat': { text: 'Patient requested: ↻ Repeat signing', icon: '🔄' },
+    'question': { text: 'Patient indicated: ? Has a question', icon: '❓' },
+  };
+  const resp = responseMap[type];
+  addLogEntry('sign', resp.text);
+
+  if(type === 'repeat') {
+    replayASL();
+    return;
+  }
+
+  // Flash feedback on button
+  const panel = document.getElementById('patientResponsePanel');
+  const btns = panel.querySelectorAll('.patient-resp-btn');
+  btns.forEach(b => b.style.opacity = '0.4');
+  const activeBtn = panel.querySelector(`.${type}`);
+  if(activeBtn) {
+    activeBtn.style.opacity = '1';
+    activeBtn.style.transform = 'scale(1.05)';
+  }
+
+  // Close after brief feedback
+  setTimeout(() => {
+    closeASLOverlay();
+    btns.forEach(b => { b.style.opacity = '1'; b.style.transform = ''; });
+  }, 800);
+}
+
+// ===== START =====
+init();
+// Pre-load MediaPipe hands model
+try { initMediaPipeHands(); } catch(e) { console.log('MediaPipe will init on camera start'); }
+</script>
+
+</body>
+</html>
