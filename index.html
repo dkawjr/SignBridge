@@ -1,0 +1,3721 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" id="themeColor" content="#FFFFFF">
+<title>SignBridge — Perioperative ASL Communication</title>
+
+<!-- MediaPipe Hands -->
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.min.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils@0.3.1675466124/drawing_utils.min.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1675466862/camera_utils.min.js" crossorigin="anonymous"></script>
+
+<style>
+/* ===== RESET ===== */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html{font-size:16px;-webkit-text-size-adjust:100%;-webkit-tap-highlight-color:transparent;}
+
+/* ===== DESIGN TOKENS ===== */
+:root {
+  --primary: #2563EB;
+  --primary-hover: #1D4ED8;
+  --primary-light: #EFF6FF;
+  --primary-muted: #93C5FD;
+  --success: #059669;
+  --success-light: #ECFDF5;
+  --warning: #D97706;
+  --warning-light: #FFFBEB;
+  --danger: #DC2626;
+  --danger-light: #FEF2F2;
+  --info: #0891B2;
+  --bg: #F8FAFC;
+  --bg-elevated: #FFFFFF;
+  --bg-inset: #F1F5F9;
+  --border: #E2E8F0;
+  --border-strong: #CBD5E1;
+  --text-primary: #0F172A;
+  --text-secondary: #475569;
+  --text-tertiary: #94A3B8;
+  --text-inverse: #FFFFFF;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+  --shadow-md: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-lg: 0 4px 12px rgba(0,0,0,0.08);
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-full: 9999px;
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 12px;
+  --space-lg: 16px;
+  --space-xl: 20px;
+  --space-2xl: 24px;
+  --space-3xl: 32px;
+  --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --font-mono: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  --max-width: 430px;
+  --nav-height: 56px;
+  --tab-height: 56px;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* ===== DARK MODE ===== */
+[data-theme="dark"] {
+  --bg: #0F172A;
+  --bg-elevated: #1E293B;
+  --bg-inset: #0F172A;
+  --border: #334155;
+  --border-strong: #475569;
+  --text-primary: #F1F5F9;
+  --text-secondary: #94A3B8;
+  --text-tertiary: #64748B;
+  --text-inverse: #0F172A;
+  --primary-light: #1E3A5F;
+  --success-light: #064E3B;
+  --warning-light: #451A03;
+  --danger-light: #450A0A;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.2);
+  --shadow-md: 0 1px 3px rgba(0,0,0,0.3);
+  --shadow-lg: 0 4px 12px rgba(0,0,0,0.3);
+}
+
+/* ===== BASE ===== */
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text-primary);
+  line-height: 1.5;
+  overflow: hidden;
+  height: 100dvh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ===== APP SHELL ===== */
+.app {
+  max-width: var(--max-width);
+  margin: 0 auto;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  position: relative;
+  overflow: hidden;
+}
+
+/* ===== TOP NAV ===== */
+.top-nav {
+  height: var(--nav-height);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--space-lg);
+  background: var(--bg-elevated);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  position: relative;
+  z-index: 10;
+}
+.top-nav h1 {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.3px;
+}
+.top-nav h1 span.brand-mark { color: var(--primary); }
+.nav-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+.nav-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--text-secondary);
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.nav-btn:active { background: var(--bg-inset); }
+.nav-btn.emergency-nav {
+  border-color: #FECACA;
+  background: var(--danger-light);
+  color: var(--danger);
+  font-size: 13px;
+  font-weight: 700;
+}
+.nav-btn.emergency-nav:active { background: #FEE2E2; }
+[data-theme="dark"] .nav-btn.emergency-nav { border-color: #7F1D1D; }
+
+/* ===== MODE SWITCHER ===== */
+.mode-switcher {
+  display: flex;
+  margin: var(--space-md) var(--space-lg) 0;
+  background: var(--bg-inset);
+  border-radius: var(--radius-md);
+  padding: 3px;
+  border: 1px solid var(--border);
+}
+.mode-btn {
+  flex: 1;
+  padding: 8px 0;
+  border: none;
+  background: transparent;
+  font-family: var(--font);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  border-radius: 6px;
+  transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+.mode-btn .mode-icon { font-size: 13px; line-height: 1; }
+.mode-btn.active {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  font-weight: 600;
+  box-shadow: var(--shadow-sm);
+}
+
+/* ===== SCREEN CONTAINER ===== */
+.screen-container {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+}
+.screen { display: none; padding: var(--space-lg); }
+.screen.active { display: block; }
+
+/* ===== SECTION LABEL ===== */
+.section-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: var(--space-sm);
+}
+
+/* ===== CARDS ===== */
+.card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+  margin-bottom: var(--space-md);
+  box-shadow: var(--shadow-sm);
+}
+
+/* ===== SEARCH BAR (with mic) ===== */
+.search-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-md);
+  transition: border-color 0.15s ease;
+}
+.search-bar:focus-within { border-color: var(--primary); }
+.search-bar .search-icon {
+  font-size: 14px;
+  color: var(--text-tertiary);
+}
+.search-bar input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  font-family: var(--font);
+  font-size: 14px;
+  color: var(--text-primary);
+  outline: none;
+}
+.search-bar input::placeholder { color: var(--text-tertiary); }
+.mic-search-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text-secondary);
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+.mic-search-btn:active { background: var(--bg-inset); }
+.mic-search-btn.listening {
+  border-color: var(--primary);
+  background: var(--primary-light);
+  color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(37,99,235,0.12);
+  animation: pulse-mic 1.5s ease-in-out infinite;
+}
+@keyframes pulse-mic {
+  0%, 100% { box-shadow: 0 0 0 3px rgba(37,99,235,0.12); }
+  50% { box-shadow: 0 0 0 6px rgba(37,99,235,0.08); }
+}
+
+/* Language toggle button */
+.lang-toggle-btn {
+  min-width: 36px;
+  height: 30px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+  font-family: var(--font);
+  letter-spacing: 0.5px;
+  padding: 0 8px;
+}
+.lang-toggle-btn:active { background: var(--bg-inset); }
+.lang-toggle-btn.active {
+  border-color: #D97706;
+  background: #FFFBEB;
+  color: #92400E;
+}
+[data-theme="dark"] .lang-toggle-btn.active {
+  background: #78350F;
+  color: #FCD34D;
+  border-color: #92400E;
+}
+.cmd-spanish {
+  font-size: 11px;
+  color: #D97706;
+  font-style: italic;
+  margin-top: 2px;
+  line-height: 1.3;
+}
+[data-theme="dark"] .cmd-spanish { color: #FCD34D; }
+
+/* Voice match inline card */
+.voice-match-inline {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-md) var(--space-lg);
+  margin-bottom: var(--space-md);
+  display: none;
+}
+.voice-match-inline.visible { display: block; }
+.vmi-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-sm);
+}
+.vmi-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.vmi-close {
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; font-size: 11px; color: var(--text-tertiary);
+}
+.vmi-body {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+.vmi-conf {
+  font-size: 22px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+.vmi-info { flex: 1; min-width: 0; }
+.vmi-phrase {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.vmi-status { font-size: 11px; color: var(--text-secondary); }
+.vmi-send {
+  padding: 8px 14px;
+  border-radius: var(--radius-md);
+  background: var(--primary);
+  color: white;
+  border: none;
+  font-family: var(--font);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s ease;
+}
+.vmi-send:active { background: var(--primary-hover); }
+
+/* ===== CATEGORY PILLS ===== */
+.pill-row {
+  display: flex;
+  gap: var(--space-sm);
+  overflow-x: auto;
+  padding-bottom: var(--space-md);
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.pill-row::-webkit-scrollbar { display: none; }
+.pill {
+  flex-shrink: 0;
+  padding: 6px 14px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  font-family: var(--font);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+.pill.active {
+  background: var(--primary);
+  color: var(--text-inverse);
+  border-color: var(--primary);
+}
+.pill:active:not(.active) { background: var(--bg-inset); }
+
+/* ===== COMMAND GRID ===== */
+.command-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-sm);
+}
+.cmd-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-md) var(--space-lg);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+  text-align: left;
+}
+.cmd-btn:active { background: var(--bg-inset); border-color: var(--border-strong); }
+.cmd-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  background: var(--primary-light);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  flex-shrink: 0;
+  color: var(--primary);
+  font-weight: 700;
+}
+.cmd-icon svg { width: 16px; height: 16px; stroke: var(--primary); fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.cmd-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  line-height: 1.3;
+}
+.cmd-sublabel {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  line-height: 1.3;
+  margin-top: 1px;
+  font-weight: 400;
+}
+.cmd-arrow {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+/* ===== QUICK ACTIONS (Favorites) ===== */
+.quick-action {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-md) var(--space-lg);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-sm);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.quick-action:active { background: var(--bg-inset); }
+.qa-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  flex-shrink: 0;
+}
+.qa-text {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+.qa-arrow {
+  margin-left: auto;
+  font-size: 13px;
+  color: var(--text-tertiary);
+}
+
+/* ===== ASL OVERLAY ===== */
+.asl-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: var(--bg);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+}
+.asl-overlay.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+.asl-phrase-text {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: var(--space-xl);
+  text-align: center;
+  padding: 0 var(--space-xl);
+  line-height: 1.4;
+}
+
+/* ===== GHOST HAND CONTAINER ===== */
+.ghost-hands-container {
+  width: 300px;
+  height: 280px;
+  position: relative;
+  margin-bottom: var(--space-xl);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.ghost-hand {
+  position: absolute;
+  width: 130px;
+  height: 180px;
+  opacity: 0;
+  transition: opacity 0.4s ease, transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.ghost-hand.left { left: 6px; }
+.ghost-hand.right { right: 6px; }
+.ghost-hand.visible { opacity: 1; }
+.ghost-hand svg {
+  width: 100%;
+  height: 100%;
+  filter: drop-shadow(0 4px 20px rgba(37,99,235,0.12));
+  overflow: visible;
+}
+/* Realistic palm with gradient feel */
+.ghost-palm {
+  fill: rgba(37,99,235,0.08);
+  stroke: rgba(37,99,235,0.3);
+  stroke-width: 1;
+}
+.ghost-palm-inner {
+  fill: rgba(37,99,235,0.04);
+  stroke: none;
+}
+/* Finger segments — thicker, rounder, more anatomical */
+.ghost-finger {
+  fill: none;
+  stroke: rgba(37,99,235,0.32);
+  stroke-width: 7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: d 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.35s ease;
+}
+.ghost-finger-mid {
+  fill: none;
+  stroke: rgba(37,99,235,0.22);
+  stroke-width: 8.5;
+  stroke-linecap: round;
+  transition: d 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.ghost-finger-tip {
+  fill: rgba(37,99,235,0.18);
+  stroke: rgba(37,99,235,0.1);
+  stroke-width: 0.6;
+  transition: cx 0.4s cubic-bezier(0.4, 0, 0.2, 1), cy 0.4s cubic-bezier(0.4, 0, 0.2, 1), r 0.35s ease;
+}
+/* Wrist / forearm taper */
+.ghost-wrist {
+  fill: none;
+  stroke: rgba(37,99,235,0.15);
+  stroke-width: 1;
+}
+/* Knuckle creases for realism */
+.ghost-crease {
+  fill: none;
+  stroke: rgba(37,99,235,0.08);
+  stroke-width: 0.5;
+}
+/* Animating state — light up */
+.ghost-hand.animating .ghost-palm {
+  fill: rgba(37,99,235,0.16);
+  stroke: rgba(37,99,235,0.45);
+}
+.ghost-hand.animating .ghost-palm-inner {
+  fill: rgba(37,99,235,0.08);
+}
+.ghost-hand.animating .ghost-crease {
+  stroke: rgba(37,99,235,0.15);
+}
+.ghost-hand.animating .ghost-wrist {
+  stroke: rgba(37,99,235,0.25);
+}
+.ghost-hand.animating .ghost-finger {
+  stroke: rgba(37,99,235,0.5);
+  stroke-width: 7.5;
+}
+.ghost-hand.animating .ghost-finger-mid {
+  stroke: rgba(37,99,235,0.32);
+  stroke-width: 9;
+}
+.ghost-hand.animating .ghost-finger-tip {
+  fill: rgba(37,99,235,0.3);
+  stroke: rgba(37,99,235,0.18);
+}
+/* Gesture label under the hands */
+.gesture-label {
+  position: absolute;
+  bottom: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--primary);
+  background: var(--primary-light);
+  padding: 5px 16px;
+  border-radius: var(--radius-full);
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  letter-spacing: 0.01em;
+}
+.gesture-label.visible { opacity: 1; }
+
+/* ASL progress bar */
+.asl-progress-wrap {
+  width: 200px;
+  height: 4px;
+  background: var(--bg-inset);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+  margin-bottom: var(--space-xl);
+}
+.asl-progress-bar {
+  height: 100%;
+  background: var(--primary);
+  border-radius: var(--radius-full);
+  width: 0%;
+  transition: width 0.1s linear;
+}
+
+/* ASL actions */
+.asl-actions {
+  display: flex;
+  gap: var(--space-md);
+}
+.asl-action-btn {
+  padding: 10px 20px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  font-family: var(--font);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background 0.15s ease;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.asl-action-btn:active { background: var(--bg-inset); }
+.asl-action-btn.primary-action {
+  background: var(--primary);
+  color: var(--text-inverse);
+  border-color: var(--primary);
+}
+.asl-action-btn.primary-action:active { background: var(--primary-hover); }
+
+/* Patient response panel (inside ASL overlay) */
+.patient-response-panel {
+  display: flex;
+  gap: var(--space-sm);
+  margin-top: var(--space-lg);
+  padding: 0 var(--space-xl);
+}
+.patient-resp-btn {
+  flex: 1;
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  font-family: var(--font);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.15s ease;
+}
+.patient-resp-btn:active { background: var(--bg-inset); }
+.patient-resp-btn .resp-icon { font-size: 18px; margin-bottom: 2px; }
+
+/* ===== CAMERA (Patient only) ===== */
+.camera-panel {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  margin-bottom: var(--space-md);
+}
+.camera-viewport {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4/3;
+  background: #000;
+}
+.camera-viewport video {
+  width: 100%; height: 100%; object-fit: cover;
+  transform: scaleX(-1);
+}
+.camera-viewport canvas {
+  position: absolute;
+  top: 0; left: 0; width: 100%; height: 100%;
+  transform: scaleX(-1);
+  pointer-events: none;
+}
+.camera-overlay {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: var(--bg-inset);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-md);
+  cursor: pointer;
+}
+.camera-overlay.hidden { display: none; }
+.camera-overlay .cam-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--primary-light);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  color: var(--primary);
+}
+.camera-overlay .cam-text {
+  font-size: 13px;
+  color: var(--text-tertiary);
+  font-weight: 500;
+}
+
+.hand-status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  font-size: 12px;
+  color: var(--text-tertiary);
+  font-weight: 500;
+  border-top: 1px solid var(--border);
+}
+.hand-status .dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--text-tertiary);
+  flex-shrink: 0;
+}
+.hand-status.tracking .dot { background: var(--success); }
+.landmark-count {
+  margin-left: auto;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--primary);
+  font-variant-numeric: tabular-nums;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+.landmark-count.visible { opacity: 1; }
+
+.detected-sign {
+  padding: var(--space-md);
+  text-align: center;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--primary);
+  background: var(--primary-light);
+  border-top: 1px solid var(--border);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+.detected-sign.show { opacity: 1; }
+.detected-sign.letter-detect { color: #7C3AED; background: #F5F3FF; }
+.detected-sign.spelling-detect { color: #059669; background: #ECFDF5; }
+.detected-sign.gesture-detect { color: var(--primary); background: var(--primary-light); }
+.spelling-buffer {
+  text-align: center;
+  font-size: 20px;
+  font-weight: 700;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  color: #7C3AED;
+  letter-spacing: 4px;
+  padding: var(--space-sm) var(--space-md);
+  background: #F5F3FF;
+  border-top: 1px solid #E9D5FF;
+  display: none;
+}
+.spelling-buffer.visible { display: block; }
+
+/* Confidence badges */
+.conf-badge {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  vertical-align: middle;
+  margin-left: 6px;
+  text-transform: uppercase;
+}
+.conf-high { background: #D1FAE5; color: #065F46; border: 1px solid #6EE7B7; }
+.conf-med { background: #FEF3C7; color: #92400E; border: 1px solid #FCD34D; }
+.conf-low { background: #FEE2E2; color: #991B1B; border: 1px solid #FCA5A5; }
+
+/* Dark mode confidence badges */
+[data-theme="dark"] .conf-high { background: #064E3B; color: #6EE7B7; border-color: #065F46; }
+[data-theme="dark"] .conf-med { background: #78350F; color: #FCD34D; border-color: #92400E; }
+[data-theme="dark"] .conf-low { background: #7F1D1D; color: #FCA5A5; border-color: #991B1B; }
+
+/* Demo disclaimer banner */
+.demo-disclaimer {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  background: var(--warning-light);
+  border: 1px solid #FDE68A;
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-md);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--warning);
+}
+[data-theme="dark"] .demo-disclaimer { border-color: #92400E; }
+.demo-disclaimer .dd-icon { font-size: 13px; flex-shrink: 0; }
+
+/* ===== SESSION LOG ===== */
+.log-entry {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-md);
+  padding: var(--space-md) 0;
+  border-bottom: 1px solid var(--border);
+}
+.log-entry:last-child { border-bottom: none; }
+.log-icon {
+  width: 28px; height: 28px;
+  border-radius: var(--radius-sm);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; flex-shrink: 0; font-weight: 700;
+}
+.log-icon.voice { background: var(--primary-light); color: var(--primary); }
+.log-icon.sign { background: var(--success-light); color: var(--success); }
+.log-icon.cmd { background: var(--bg-inset); color: var(--text-tertiary); }
+.log-text { font-size: 13px; color: var(--text-primary); line-height: 1.4; }
+.log-time { font-size: 11px; color: var(--text-tertiary); margin-top: 2px; }
+.log-empty {
+  text-align: center;
+  padding: var(--space-3xl) 0;
+  color: var(--text-tertiary);
+  font-size: 13px;
+}
+
+/* ===== TAB BAR (2 tabs) ===== */
+.tab-bar {
+  display: flex;
+  height: var(--tab-height);
+  background: var(--bg-elevated);
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+  padding-bottom: var(--safe-bottom);
+}
+.tab {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  cursor: pointer;
+  transition: color 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.tab .tab-icon {
+  font-size: 18px;
+  color: var(--text-tertiary);
+  transition: color 0.15s ease;
+}
+.tab .tab-label {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  transition: color 0.15s ease;
+}
+.tab.active .tab-icon { color: var(--primary); }
+.tab.active .tab-label { color: var(--primary); font-weight: 600; }
+
+/* ===== RECEIVE ASL MODE (formerly Patient) ===== */
+.patient-mode-container {
+  display: none;
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-lg);
+}
+.patient-mode-container.active { display: block; }
+
+.patient-camera-card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  margin-bottom: var(--space-md);
+}
+.patient-cam-viewport {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4/3;
+  background: #000;
+}
+.patient-cam-viewport video {
+  width: 100%; height: 100%; object-fit: cover;
+  transform: scaleX(-1);
+}
+.patient-cam-viewport canvas {
+  position: absolute;
+  top: 0; left: 0; width: 100%; height: 100%;
+  transform: scaleX(-1);
+  pointer-events: none;
+}
+.patient-cam-overlay {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: var(--bg-inset);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-md);
+  cursor: pointer;
+}
+.patient-cam-overlay.hidden { display: none; }
+.patient-cam-status {
+  padding: var(--space-sm) var(--space-md);
+  font-size: 12px;
+  color: var(--text-tertiary);
+  font-weight: 500;
+  border-top: 1px solid var(--border);
+}
+.patient-detected-sign {
+  padding: var(--space-sm) var(--space-md);
+  text-align: center;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--primary);
+  background: var(--primary-light);
+  border-top: 1px solid var(--border);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+.patient-detected-sign.show { opacity: 1; }
+
+/* Patient transcript */
+.patient-transcript-box {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  margin-bottom: var(--space-md);
+}
+.transcript-header {
+  padding: var(--space-md) var(--space-lg);
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+.transcript-header .live-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--success);
+}
+.patient-transcript-feed {
+  padding: var(--space-md);
+  max-height: 160px;
+  overflow-y: auto;
+}
+.transcript-entry {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  padding: var(--space-xs) 0;
+}
+.t-icon {
+  width: 22px; height: 22px;
+  border-radius: var(--radius-sm);
+  background: var(--primary-light);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; flex-shrink: 0;
+}
+.t-text { font-size: 12px; color: var(--text-primary); line-height: 1.4; }
+.t-time { font-size: 10px; color: var(--text-tertiary); }
+.transcript-empty {
+  text-align: center;
+  padding: var(--space-xl);
+  color: var(--text-tertiary);
+  font-size: 12px;
+}
+
+/* Patient quick responses */
+.patient-quick-responses {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+}
+.patient-resp-big {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-xs);
+  padding: var(--space-lg) var(--space-md);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.patient-resp-big:active { background: var(--bg-inset); }
+.patient-resp-big .pr-icon { font-size: 24px; }
+.patient-resp-big .pr-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.patient-resp-big.yes { border-color: #BBF7D0; }
+.patient-resp-big.yes:active { background: var(--success-light); }
+.patient-resp-big.no { border-color: #FECACA; }
+.patient-resp-big.no:active { background: var(--danger-light); }
+.patient-resp-big.help { border-color: #FED7AA; background: var(--warning-light); }
+.patient-resp-big.repeat-req { border-color: #BFDBFE; }
+
+/* ===== BODY MAP ===== */
+.body-map-section {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+  margin-bottom: var(--space-md);
+}
+.body-map-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: var(--space-md);
+}
+.body-map-container {
+  display: flex;
+  justify-content: center;
+  margin-bottom: var(--space-md);
+}
+.body-map-svg { width: 160px; }
+.body-zone {
+  fill: var(--bg-inset);
+  stroke: var(--border-strong);
+  stroke-width: 1;
+  cursor: pointer;
+  transition: fill 0.15s ease, stroke 0.15s ease;
+}
+.body-zone:hover { fill: var(--primary-light); }
+.body-zone.selected { fill: var(--primary-light); stroke: var(--primary); stroke-width: 2; }
+.zone-label {
+  font-size: 4.5px;
+  fill: var(--text-tertiary);
+  text-anchor: middle;
+  pointer-events: none;
+  font-weight: 600;
+}
+.body-selection-info {
+  display: none;
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+}
+.body-sel-area {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: var(--space-sm);
+}
+.severity-row {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.severity-dot {
+  width: 28px; height: 28px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-variant-numeric: tabular-nums;
+}
+.severity-dot.selected { color: white; border-color: transparent; }
+.pain-scale-label {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 4px;
+  font-size: 10px;
+  color: var(--text-tertiary);
+}
+
+/* ===== PATIENT/RECEIVE MODE ACTIVE STATE ===== */
+.app.patient-active .tab-bar { display: none; }
+.app.patient-active .screen-container { display: none; }
+
+/* ===== DEMO MODE ===== */
+.demo-fab {
+  position: fixed;
+  bottom: 72px;
+  right: 16px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--primary);
+  color: white;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  cursor: pointer;
+  z-index: 100;
+  box-shadow: var(--shadow-lg);
+  transition: background 0.15s ease;
+}
+.demo-fab:active { background: var(--primary-hover); }
+.demo-tooltip {
+  position: fixed;
+  z-index: 999;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+  max-width: 280px;
+  box-shadow: var(--shadow-lg);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+.demo-tooltip.visible { opacity: 1; pointer-events: auto; }
+.demo-tooltip .dt-step {
+  font-size: 10px; font-weight: 700; color: var(--primary);
+  text-transform: uppercase; letter-spacing: 0.08em;
+  margin-bottom: var(--space-xs);
+}
+.demo-tooltip .dt-title {
+  font-size: 14px; font-weight: 600; color: var(--text-primary);
+  margin-bottom: var(--space-xs);
+}
+.demo-tooltip .dt-desc {
+  font-size: 12px; color: var(--text-secondary);
+  line-height: 1.5; margin-bottom: var(--space-md);
+}
+.demo-tooltip .dt-actions { display: flex; gap: var(--space-sm); }
+.dt-btn {
+  padding: 8px 14px; border-radius: var(--radius-md);
+  border: 1px solid var(--border); background: var(--bg-elevated);
+  font-family: var(--font); font-size: 12px; font-weight: 500;
+  color: var(--text-secondary); cursor: pointer;
+  transition: background 0.15s ease;
+}
+.dt-btn:active { background: var(--bg-inset); }
+.dt-btn.primary { background: var(--primary); color: white; border-color: var(--primary); }
+.dt-btn.primary:active { background: var(--primary-hover); }
+
+/* Demo version badge — repositioned to avoid overlap */
+.demo-badge {
+  position: fixed;
+  bottom: 72px;
+  left: 16px;
+  padding: 4px 10px;
+  background: var(--warning-light);
+  border: 1px solid #FDE68A;
+  border-radius: var(--radius-full);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--warning);
+  z-index: 101;
+  letter-spacing: 0.02em;
+}
+[data-theme="dark"] .demo-badge { border-color: #92400E; }
+
+/* ===== DIRECTION BANNERS ===== */
+.direction-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-md);
+  font-size: 12px;
+  font-weight: 500;
+  margin-bottom: var(--space-md);
+}
+.direction-banner.send-asl {
+  background: var(--primary-light);
+  color: var(--primary);
+  border: 1px solid #BFDBFE;
+}
+[data-theme="dark"] .direction-banner.send-asl { border-color: #1E3A5F; }
+.direction-banner.receive-asl {
+  background: var(--success-light);
+  color: var(--success);
+  border: 1px solid #BBF7D0;
+}
+[data-theme="dark"] .direction-banner.receive-asl { border-color: #064E3B; }
+
+/* ===== UTILITY ===== */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.badge.info { background: var(--primary-light); color: var(--primary); }
+.badge.success { background: var(--success-light); color: var(--success); }
+.badge.warning { background: var(--warning-light); color: var(--warning); }
+
+/* ===== EMERGENCY MODAL ===== */
+.emergency-modal {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(220,38,38,0.95);
+  z-index: 2000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-xl);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+.emergency-modal.active { opacity: 1; pointer-events: auto; }
+.emergency-modal .em-icon { font-size: 48px; }
+.emergency-modal .em-text {
+  font-size: 22px;
+  font-weight: 700;
+  color: white;
+  text-align: center;
+  padding: 0 var(--space-xl);
+}
+.emergency-modal .em-sub {
+  font-size: 14px;
+  color: rgba(255,255,255,0.8);
+  text-align: center;
+}
+.emergency-modal .em-close {
+  padding: 12px 32px;
+  border-radius: var(--radius-md);
+  border: 2px solid rgba(255,255,255,0.5);
+  background: transparent;
+  color: white;
+  font-family: var(--font);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: var(--space-xl);
+  transition: background 0.15s ease;
+}
+.emergency-modal .em-close:active { background: rgba(255,255,255,0.1); }
+
+/* ===== CONNECTION STATUS BAR ===== */
+.conn-status-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: 6px var(--space-md);
+  background: var(--bg-elevated);
+  border-bottom: 1px solid var(--border);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  overflow-x: auto;
+  white-space: nowrap;
+}
+.conn-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: var(--radius-full);
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  transition: all 0.2s ease;
+}
+.conn-chip .conn-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--text-tertiary);
+  transition: background 0.2s ease;
+}
+.conn-chip.active { border-color: #059669; color: #059669; }
+.conn-chip.active .conn-dot { background: #059669; }
+.conn-chip.warn { border-color: #D97706; color: #D97706; }
+.conn-chip.warn .conn-dot { background: #D97706; }
+[data-theme="dark"] .conn-chip.active { border-color: #6EE7B7; color: #6EE7B7; }
+[data-theme="dark"] .conn-chip.active .conn-dot { background: #6EE7B7; }
+
+/* ===== TTS CONTROLS ===== */
+.tts-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-md);
+  margin-top: var(--space-sm);
+}
+.tts-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: var(--radius-full);
+  border: 1px solid rgba(255,255,255,0.25);
+  background: rgba(255,255,255,0.1);
+  color: white;
+  font-family: var(--font);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  backdrop-filter: blur(4px);
+}
+.tts-btn:active { background: rgba(255,255,255,0.2); transform: scale(0.97); }
+.tts-btn.speaking { background: rgba(5,150,105,0.3); border-color: rgba(5,150,105,0.5); }
+.tts-btn svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2; }
+
+/* ===== PATIENT QUICK RESPONSE ENHANCEMENTS ===== */
+.patient-resp-big.idk {
+  background: var(--warning-light);
+}
+.patient-resp-big.idk .pr-icon {
+  color: var(--warning);
+}
+[data-theme="dark"] .patient-resp-big.idk {
+  background: #451A03;
+}
+.quick-pain-section {
+  margin-top: var(--space-md);
+  padding: var(--space-md);
+  background: var(--bg-elevated);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+}
+.quick-pain-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: var(--space-sm);
+  text-align: center;
+}
+.quick-pain-slider {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.quick-pain-slider input[type="range"] {
+  flex: 1;
+  height: 6px;
+  -webkit-appearance: none;
+  appearance: none;
+  border-radius: 3px;
+  background: linear-gradient(to right, #059669 0%, #D97706 50%, #DC2626 100%);
+  outline: none;
+}
+.quick-pain-slider input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  background: var(--bg-elevated);
+  border: 2px solid var(--primary);
+  box-shadow: var(--shadow-md);
+  cursor: pointer;
+}
+.quick-pain-value {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+  min-width: 32px;
+  text-align: center;
+}
+.quick-pain-send {
+  margin-top: var(--space-sm);
+  width: 100%;
+  padding: 10px;
+  border-radius: var(--radius-md);
+  border: none;
+  background: var(--primary);
+  color: white;
+  font-family: var(--font);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.quick-pain-send:active { background: var(--primary-hover); }
+</style>
+</head>
+<body>
+
+<div class="demo-badge">v5.1 DEMO</div>
+
+<div class="app" id="app">
+  <!-- Top Nav -->
+  <div class="top-nav">
+    <h1>Sign<span class="brand-mark">Bridge</span></h1>
+    <div class="nav-actions">
+      <button class="nav-btn emergency-nav" id="emergencyBtn" onclick="triggerEmergency()" title="Emergency ASL">⚠</button>
+      <button class="nav-btn" id="darkToggle" onclick="toggleDarkMode()" title="Toggle theme">☀️</button>
+    </div>
+  </div>
+
+  <!-- Connection Status Bar -->
+  <div class="conn-status-bar" id="connStatusBar">
+    <div class="conn-chip" id="connCam"><span class="conn-dot"></span>Camera</div>
+    <div class="conn-chip" id="connMic"><span class="conn-dot"></span>Mic</div>
+    <div class="conn-chip" id="connEngine"><span class="conn-dot"></span>ASL Engine</div>
+    <div class="conn-chip" id="connTTS"><span class="conn-dot"></span>TTS</div>
+  </div>
+
+  <!-- Mode Switcher -->
+  <div class="mode-switcher">
+    <button class="mode-btn active" id="modeSend" onclick="switchMode('send')">
+      <span class="mode-icon">↓</span> Send ASL
+    </button>
+    <button class="mode-btn" id="modeReceive" onclick="switchMode('receive')">
+      <span class="mode-icon">↑</span> Receive ASL
+    </button>
+  </div>
+
+  <!-- Screen Container (Send ASL mode) -->
+  <div class="screen-container">
+
+    <!-- Commands Screen (with integrated voice) -->
+    <div class="screen active" id="commandScreen">
+      <div class="direction-banner send-asl">
+        <span>↓</span> You speak / tap → Patient sees ASL
+      </div>
+
+      <div class="search-bar">
+        <span class="search-icon">⌕</span>
+        <input type="text" placeholder="Search 70 perioperative commands..." id="searchInput" oninput="filterCommands(this.value)">
+        <button class="mic-search-btn" id="micSearchBtn" onclick="toggleMic()" title="Voice search">
+          <span id="micSearchIcon">🎤</span>
+        </button>
+      </div>
+
+      <!-- Voice match result (appears inline when voice matched) -->
+      <div class="voice-match-inline" id="voiceMatchInline">
+        <div class="vmi-header">
+          <span class="vmi-label">Voice Match</span>
+          <button class="vmi-close" onclick="dismissVoiceMatch()">✕</button>
+        </div>
+        <div class="vmi-body">
+          <div class="vmi-conf" id="vmiConf">—</div>
+          <div class="vmi-info">
+            <div class="vmi-phrase" id="vmiPhrase"></div>
+            <div class="vmi-status" id="vmiStatus"></div>
+          </div>
+          <button class="vmi-send" id="vmiSend" onclick="sendVoiceMatch()">Send →</button>
+        </div>
+      </div>
+
+      <div class="pill-row" id="pillRow"></div>
+
+      <div class="section-label">Phrase Library</div>
+      <div class="command-grid" id="commandGrid"></div>
+
+      <div style="margin-top:var(--space-xl);">
+        <div class="section-label">Favorites</div>
+        <div id="quickPhrases"></div>
+      </div>
+    </div>
+
+    <!-- Session Log Screen -->
+    <div class="screen" id="logScreen">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:var(--space-md);">
+        <div class="section-label" style="margin-bottom:0;">Session Activity</div>
+        <div style="display:flex;gap:6px;">
+          <button onclick="generateClinicalNote()" title="Generate SOAP note" style="
+            padding:4px 12px;border-radius:var(--radius-full);
+            border:1px solid var(--primary);background:var(--primary-light);
+            font-family:var(--font);font-size:11px;font-weight:600;
+            color:var(--primary);cursor:pointer;">Note</button>
+          <button onclick="downloadTranscript()" title="Download transcript" style="
+            padding:4px 12px;border-radius:var(--radius-full);
+            border:1px solid var(--border);background:var(--bg-elevated);
+            font-family:var(--font);font-size:11px;font-weight:500;
+            color:var(--text-tertiary);cursor:pointer;">↓ Download</button>
+          <button onclick="clearLog()" style="
+            padding:4px 12px;border-radius:var(--radius-full);
+            border:1px solid var(--border);background:var(--bg-elevated);
+            font-family:var(--font);font-size:11px;font-weight:500;
+            color:var(--text-tertiary);cursor:pointer;">Clear</button>
+        </div>
+      </div>
+      <div id="sessionLog">
+        <div class="log-empty">Session events will appear here</div>
+      </div>
+    </div>
+
+  </div><!-- /screen-container -->
+
+  <!-- ===== RECEIVE ASL MODE SCREEN ===== -->
+  <div class="patient-mode-container" id="patientModeScreen">
+    <div class="direction-banner receive-asl">
+      <span>↑</span> Patient signs → You see text
+    </div>
+
+    <!-- Demo Disclaimer -->
+    <div class="demo-disclaimer">
+      <span class="dd-icon">⚠</span>
+      ASL Recognition — Detects 26 ASL fingerspelling letters (A-Y) and 8 medical signs (Help, Yes, No, Pain, Stop, Thank You, OK, Wait). Fingerspelling auto-buffers into words.
+    </div>
+
+    <!-- Patient Camera -->
+    <div class="patient-camera-card">
+      <div class="patient-cam-viewport">
+        <video id="patientCamFeed" autoplay playsinline></video>
+        <canvas id="patientHandCanvas"></canvas>
+        <div class="patient-cam-overlay" id="patientCamOverlay" onclick="togglePatientCamera()">
+          <div class="cam-icon">📷</div>
+          <div class="cam-text">Tap to start signing</div>
+        </div>
+      </div>
+      <div class="hand-status" id="handStatus">
+        <div class="dot"></div>Camera off
+      </div>
+      <div class="landmark-count" id="landmarkCount"></div>
+      <div class="detected-sign" id="detectedSign"></div>
+      <div class="spelling-buffer" id="spellingBufferDisplay"></div>
+    </div>
+
+    <!-- Patient Transcript -->
+    <div class="patient-transcript-box">
+      <div class="transcript-header">
+        <span class="live-dot"></span> Live Transcript — ASL Recognition
+      </div>
+      <div class="patient-transcript-feed" id="patientTranscriptFeed">
+        <div class="transcript-empty">Start the camera — detected signs will appear here in real time</div>
+      </div>
+    </div>
+
+    <!-- Patient Quick Responses -->
+    <div class="patient-quick-responses">
+      <div class="patient-resp-big yes" onclick="patientQuickReply('yes')">
+        <span class="pr-icon">✓</span>
+        <span class="pr-label">Yes</span>
+      </div>
+      <div class="patient-resp-big no" onclick="patientQuickReply('no')">
+        <span class="pr-icon">✕</span>
+        <span class="pr-label">No</span>
+      </div>
+      <div class="patient-resp-big idk" onclick="patientQuickReply('idk')">
+        <span class="pr-icon">?</span>
+        <span class="pr-label">Unsure</span>
+      </div>
+      <div class="patient-resp-big help" onclick="patientQuickReply('help')">
+        <span class="pr-icon">⚠</span>
+        <span class="pr-label">Help</span>
+      </div>
+      <div class="patient-resp-big repeat-req" onclick="patientQuickReply('repeat')">
+        <span class="pr-icon">↻</span>
+        <span class="pr-label">Repeat</span>
+      </div>
+    </div>
+
+    <!-- Quick Pain Scale -->
+    <div class="quick-pain-section">
+      <div class="quick-pain-title">Quick Pain Report</div>
+      <div class="quick-pain-slider">
+        <span style="font-size:10px;color:var(--text-tertiary);">0</span>
+        <input type="range" id="quickPainSlider" min="0" max="10" value="0" oninput="updateQuickPain(this.value)">
+        <span style="font-size:10px;color:var(--text-tertiary);">10</span>
+        <div class="quick-pain-value" id="quickPainValue">0</div>
+      </div>
+      <button class="quick-pain-send" onclick="submitQuickPain()">Report Pain Level</button>
+    </div>
+
+    <!-- Body Map -->
+    <div class="body-map-section">
+      <div class="body-map-title">Where does it hurt?</div>
+      <div class="body-map-container">
+        <svg class="body-map-svg" viewBox="0 0 80 180" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <ellipse class="body-zone" data-zone="head" cx="40" cy="16" rx="12" ry="14" onclick="selectBodyZone('head')"/>
+          <text class="zone-label" x="40" y="18">Head</text>
+          <rect class="body-zone" data-zone="neck" x="35" y="30" width="10" height="8" rx="2" onclick="selectBodyZone('neck')"/>
+          <rect class="body-zone" data-zone="chest" x="22" y="38" width="36" height="24" rx="4" onclick="selectBodyZone('chest')"/>
+          <text class="zone-label" x="40" y="52">Chest</text>
+          <rect class="body-zone" data-zone="abdomen" x="24" y="62" width="32" height="20" rx="3" onclick="selectBodyZone('abdomen')"/>
+          <text class="zone-label" x="40" y="74">Abdomen</text>
+          <rect class="body-zone" data-zone="left-arm" x="6" y="40" width="14" height="30" rx="5" onclick="selectBodyZone('left-arm')"/>
+          <text class="zone-label" x="13" y="57">L.Arm</text>
+          <rect class="body-zone" data-zone="right-arm" x="60" y="40" width="14" height="30" rx="5" onclick="selectBodyZone('right-arm')"/>
+          <text class="zone-label" x="67" y="57">R.Arm</text>
+          <ellipse class="body-zone" data-zone="left-hand" cx="13" cy="76" rx="6" ry="5" onclick="selectBodyZone('left-hand')"/>
+          <text class="zone-label" x="13" y="77">L.H</text>
+          <ellipse class="body-zone" data-zone="right-hand" cx="67" cy="76" rx="6" ry="5" onclick="selectBodyZone('right-hand')"/>
+          <text class="zone-label" x="67" y="77">R.H</text>
+          <rect class="body-zone" data-zone="lower-back" x="26" y="82" width="28" height="14" rx="3" onclick="selectBodyZone('lower-back')"/>
+          <text class="zone-label" x="40" y="91">Low Back</text>
+          <rect class="body-zone" data-zone="left-leg" x="24" y="98" width="14" height="40" rx="5" onclick="selectBodyZone('left-leg')"/>
+          <text class="zone-label" x="31" y="120">L.Leg</text>
+          <rect class="body-zone" data-zone="right-leg" x="42" y="98" width="14" height="40" rx="5" onclick="selectBodyZone('right-leg')"/>
+          <text class="zone-label" x="49" y="120">R.Leg</text>
+          <ellipse class="body-zone" data-zone="left-foot" cx="31" cy="145" rx="8" ry="5" onclick="selectBodyZone('left-foot')"/>
+          <text class="zone-label" x="31" y="146">L.Ft</text>
+          <ellipse class="body-zone" data-zone="right-foot" cx="49" cy="145" rx="8" ry="5" onclick="selectBodyZone('right-foot')"/>
+          <text class="zone-label" x="49" y="146">R.Ft</text>
+        </svg>
+      </div>
+      <div class="body-selection-info" id="bodySelectionInfo">
+        <div class="body-sel-area" id="bodySelArea"></div>
+        <div style="font-size:11px;color:var(--text-tertiary);margin-bottom:var(--space-sm);">Select pain severity (0–10)</div>
+        <div class="severity-row">
+          <div class="severity-dot" onclick="selectSeverity(0)">0</div>
+          <div class="severity-dot" onclick="selectSeverity(1)">1</div>
+          <div class="severity-dot" onclick="selectSeverity(2)">2</div>
+          <div class="severity-dot" onclick="selectSeverity(3)">3</div>
+          <div class="severity-dot" onclick="selectSeverity(4)">4</div>
+          <div class="severity-dot" onclick="selectSeverity(5)">5</div>
+          <div class="severity-dot" onclick="selectSeverity(6)">6</div>
+          <div class="severity-dot" onclick="selectSeverity(7)">7</div>
+          <div class="severity-dot" onclick="selectSeverity(8)">8</div>
+          <div class="severity-dot" onclick="selectSeverity(9)">9</div>
+          <div class="severity-dot" onclick="selectSeverity(10)">10</div>
+        </div>
+        <div class="pain-scale-label">
+          <span>None</span><span>Severe</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Back to Send ASL button -->
+    <button onclick="switchMode('send')" style="
+      width:100%;padding:14px;border-radius:var(--radius-md);
+      border:1px solid var(--border);background:var(--bg-elevated);
+      font-family:var(--font);font-size:13px;font-weight:500;
+      color:var(--text-secondary);cursor:pointer;margin-top:var(--space-sm);
+      transition:background 0.15s ease;" onmousedown="this.style.background='var(--bg-inset)'" onmouseup="this.style.background='var(--bg-elevated)'">
+      ← Switch to Send ASL
+    </button>
+  </div>
+
+  <!-- Tab Bar (2 tabs) -->
+  <div class="tab-bar">
+    <div class="tab active" onclick="switchTab('commandScreen', this)">
+      <span class="tab-icon">☰</span>
+      <span class="tab-label">Commands</span>
+    </div>
+    <div class="tab" onclick="switchTab('logScreen', this)">
+      <span class="tab-icon">≡</span>
+      <span class="tab-label">Log</span>
+    </div>
+  </div>
+
+</div><!-- /app -->
+
+<!-- ===== ASL SIGNING OVERLAY (Ghost Hands) ===== -->
+<div class="asl-overlay" id="aslOverlay">
+  <div class="asl-phrase-text" id="aslPhraseText"></div>
+
+  <div class="ghost-hands-container">
+    <!-- Left Ghost Hand -->
+    <div class="ghost-hand left" id="ghostHandL">
+      <svg viewBox="0 0 130 180" fill="none">
+        <defs>
+          <radialGradient id="palmGradientL" cx="50%" cy="45%" r="55%">
+            <stop offset="0%" stop-color="rgba(37,99,235,0.13)"/>
+            <stop offset="70%" stop-color="rgba(37,99,235,0.08)"/>
+            <stop offset="100%" stop-color="rgba(37,99,235,0.03)"/>
+          </radialGradient>
+          <radialGradient id="palmGradientActiveL" cx="50%" cy="45%" r="55%">
+            <stop offset="0%" stop-color="rgba(37,99,235,0.22)"/>
+            <stop offset="70%" stop-color="rgba(37,99,235,0.14)"/>
+            <stop offset="100%" stop-color="rgba(37,99,235,0.06)"/>
+          </radialGradient>
+        </defs>
+        <!-- Wrist -->
+        <path class="ghost-wrist" d="M42 145 Q50 140 58 135 L72 135 Q80 140 88 145" stroke-linecap="round"/>
+        <!-- Palm body -->
+        <ellipse class="ghost-palm" cx="65" cy="108" rx="36" ry="40" fill="url(#palmGradientL)"/>
+        <!-- Palm inner highlight -->
+        <ellipse class="ghost-palm-inner" cx="62" cy="104" rx="18" ry="22"/>
+        <!-- Knuckle creases -->
+        <path class="ghost-crease" d="M40 78 Q52 74 62 75 Q72 76 88 80"/>
+        <path class="ghost-crease" d="M44 88 Q56 84 66 85 Q76 86 86 90"/>
+        <!-- Finger base segments (thicker, anatomical) -->
+        <path id="gfL1" class="ghost-finger" d="M49 75 Q47 40 44 20"/>
+        <path id="gfL2" class="ghost-finger" d="M59 70 Q57 36 55 13"/>
+        <path id="gfL3" class="ghost-finger" d="M70 70 Q70 36 70 10"/>
+        <path id="gfL4" class="ghost-finger" d="M80 73 Q82 40 85 18"/>
+        <path id="gfL5" class="ghost-finger" d="M94 88 Q106 72 114 62"/>
+        <!-- Mid-finger segments (slightly thicker) -->
+        <path id="gmL1" class="ghost-finger-mid" d="M49 75 Q48 58 47 48"/>
+        <path id="gmL2" class="ghost-finger-mid" d="M59 70 Q58 52 57 42"/>
+        <path id="gmL3" class="ghost-finger-mid" d="M70 70 Q70 52 70 40"/>
+        <path id="gmL4" class="ghost-finger-mid" d="M80 73 Q81 56 82 46"/>
+        <path id="gmL5" class="ghost-finger-mid" d="M94 88 Q100 80 104 74"/>
+        <!-- Fingertips -->
+        <circle class="ghost-finger-tip" id="gtL1" cx="44" cy="20" r="6"/>
+        <circle class="ghost-finger-tip" id="gtL2" cx="55" cy="13" r="6"/>
+        <circle class="ghost-finger-tip" id="gtL3" cx="70" cy="10" r="6"/>
+        <circle class="ghost-finger-tip" id="gtL4" cx="85" cy="18" r="6"/>
+        <circle class="ghost-finger-tip" id="gtL5" cx="114" cy="62" r="5.5"/>
+      </svg>
+    </div>
+    <!-- Right Ghost Hand -->
+    <div class="ghost-hand right" id="ghostHandR">
+      <svg viewBox="0 0 130 180" fill="none">
+        <defs>
+          <radialGradient id="palmGradientR" cx="50%" cy="45%" r="55%">
+            <stop offset="0%" stop-color="rgba(37,99,235,0.13)"/>
+            <stop offset="70%" stop-color="rgba(37,99,235,0.08)"/>
+            <stop offset="100%" stop-color="rgba(37,99,235,0.03)"/>
+          </radialGradient>
+          <radialGradient id="palmGradientActiveR" cx="50%" cy="45%" r="55%">
+            <stop offset="0%" stop-color="rgba(37,99,235,0.22)"/>
+            <stop offset="70%" stop-color="rgba(37,99,235,0.14)"/>
+            <stop offset="100%" stop-color="rgba(37,99,235,0.06)"/>
+          </radialGradient>
+        </defs>
+        <!-- Wrist -->
+        <path class="ghost-wrist" d="M42 145 Q50 140 58 135 L72 135 Q80 140 88 145" stroke-linecap="round"/>
+        <!-- Palm body -->
+        <ellipse class="ghost-palm" cx="65" cy="108" rx="36" ry="40" fill="url(#palmGradientR)"/>
+        <!-- Palm inner highlight -->
+        <ellipse class="ghost-palm-inner" cx="68" cy="104" rx="18" ry="22"/>
+        <!-- Knuckle creases -->
+        <path class="ghost-crease" d="M42 80 Q54 76 64 75 Q74 74 90 78"/>
+        <path class="ghost-crease" d="M44 90 Q56 86 66 85 Q76 84 86 88"/>
+        <!-- Finger base segments -->
+        <path id="gfR1" class="ghost-finger" d="M81 75 Q83 40 86 20"/>
+        <path id="gfR2" class="ghost-finger" d="M71 70 Q73 36 75 13"/>
+        <path id="gfR3" class="ghost-finger" d="M60 70 Q60 36 60 10"/>
+        <path id="gfR4" class="ghost-finger" d="M50 73 Q48 40 45 18"/>
+        <path id="gfR5" class="ghost-finger" d="M36 88 Q24 72 16 62"/>
+        <!-- Mid-finger segments -->
+        <path id="gmR1" class="ghost-finger-mid" d="M81 75 Q82 58 83 48"/>
+        <path id="gmR2" class="ghost-finger-mid" d="M71 70 Q72 52 73 42"/>
+        <path id="gmR3" class="ghost-finger-mid" d="M60 70 Q60 52 60 40"/>
+        <path id="gmR4" class="ghost-finger-mid" d="M50 73 Q49 56 48 46"/>
+        <path id="gmR5" class="ghost-finger-mid" d="M36 88 Q30 80 26 74"/>
+        <!-- Fingertips -->
+        <circle class="ghost-finger-tip" id="gtR1" cx="86" cy="20" r="6"/>
+        <circle class="ghost-finger-tip" id="gtR2" cx="75" cy="13" r="6"/>
+        <circle class="ghost-finger-tip" id="gtR3" cx="60" cy="10" r="6"/>
+        <circle class="ghost-finger-tip" id="gtR4" cx="45" cy="18" r="6"/>
+        <circle class="ghost-finger-tip" id="gtR5" cx="16" cy="62" r="5.5"/>
+      </svg>
+    </div>
+    <div class="gesture-label" id="gestureLabel"></div>
+  </div>
+
+  <div class="asl-progress-wrap">
+    <div class="asl-progress-bar" id="aslProgressBar"></div>
+  </div>
+
+  <div class="tts-bar">
+    <button class="tts-btn" id="ttsEnBtn" onclick="speakPhrase('en')">
+      <svg viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+      English
+    </button>
+    <button class="tts-btn" id="ttsEsBtn" onclick="speakPhrase('es')">
+      <svg viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+      Español
+    </button>
+  </div>
+
+  <div class="asl-actions">
+    <button class="asl-action-btn" onclick="closeASLOverlay()">Close</button>
+    <button class="asl-action-btn primary-action" onclick="replayASL()">↻ Replay</button>
+  </div>
+
+  <div class="patient-response-panel" id="patientResponsePanel">
+    <button class="patient-resp-btn understand" onclick="patientResponse('understand')">
+      <div class="resp-icon">✓</div>
+      <div>Understand</div>
+    </button>
+    <button class="patient-resp-btn repeat" onclick="patientResponse('repeat')">
+      <div class="resp-icon">↻</div>
+      <div>Repeat</div>
+    </button>
+    <button class="patient-resp-btn question" onclick="patientResponse('question')">
+      <div class="resp-icon">?</div>
+      <div>Question</div>
+    </button>
+  </div>
+</div>
+
+<!-- Emergency Modal -->
+<div class="emergency-modal" id="emergencyModal">
+  <div class="em-icon">⚠</div>
+  <div class="em-text">EMERGENCY<br>I need help now</div>
+  <div class="em-sub">This message is being displayed to all nearby staff</div>
+  <button class="em-close" onclick="closeEmergency()">Dismiss</button>
+</div>
+
+<!-- Demo FAB -->
+<button class="demo-fab" id="demoFab" onclick="startDemo()">▶</button>
+
+<!-- Demo Tooltip -->
+<div class="demo-tooltip" id="demoTooltip">
+  <div class="dt-step" id="dtStep"></div>
+  <div class="dt-title" id="dtTitle"></div>
+  <div class="dt-desc" id="dtDesc"></div>
+  <div class="dt-actions">
+    <button class="dt-btn" onclick="endDemo()">Exit</button>
+    <button class="dt-btn primary" id="dtNext" onclick="nextDemoStep()">Next →</button>
+  </div>
+</div>
+
+<script>
+// ===== STATE =====
+let recognition = null;
+let isListening = false;
+let cameraActive = false;
+let aslAnimTimer = null;
+let currentSigningPhrase = '';
+let sessionLogEntries = [];
+let demoActive = false;
+let demoStep = 0;
+let voiceMatchedCmd = null;
+
+// ===== EMERGENCY =====
+function triggerEmergency() {
+  document.getElementById('emergencyModal').classList.add('active');
+  addLogEntry('system', 'EMERGENCY triggered');
+  showASLSign('Emergency — I need help now');
+}
+function closeEmergency() {
+  document.getElementById('emergencyModal').classList.remove('active');
+}
+
+// ===== DEMO WALKTHROUGH =====
+const demoSteps = [
+  {
+    title: 'Welcome to SignBridge',
+    desc: 'A bidirectional ASL communication tool for perioperative care. This walkthrough demonstrates all features.',
+    target: null,
+    action: () => { switchMode('send'); switchTab('commandScreen', document.querySelector('.tab')); }
+  },
+  {
+    title: 'Command Library',
+    desc: '70 perioperative commands from LinguaMed MADE Labs, organized into 7 clinical categories. Tap any phrase to show its ASL translation.',
+    target: '#commandGrid',
+    action: () => { switchMode('send'); switchTab('commandScreen', document.querySelector('.tab')); }
+  },
+  {
+    title: 'Voice Search',
+    desc: 'Tap the microphone in the search bar to speak. The fuzzy-match algorithm finds the closest command with confidence scoring — no need to switch tabs.',
+    target: '.search-bar',
+    action: () => { switchMode('send'); switchTab('commandScreen', document.querySelector('.tab')); }
+  },
+  {
+    title: 'ASL Signing Overlay',
+    desc: 'When a command is selected, animated ghost hands demonstrate the approximate sign with gesture-specific shapes. The patient sees this full-screen.',
+    target: null,
+    action: () => { showASLSign('Take a deep breath'); }
+  },
+  {
+    title: 'Receive ASL Mode',
+    desc: 'Switch to Receive ASL to let patients communicate back. Includes camera with MediaPipe hand tracking, live transcript, quick responses, and body pain map.',
+    target: null,
+    action: () => { closeASLOverlay(); switchMode('receive'); }
+  },
+  {
+    title: 'Hand Tracking Camera',
+    desc: 'Uses Google MediaPipe to track 21 hand landmarks per hand in real-time. Recognizes 26 ASL fingerspelling letters (A-Y) plus 8 medical communication gestures (Help, Yes, No, Pain, Stop, Thank You, OK, Wait). Fingerspelling auto-buffers letters into words.',
+    target: '.patient-camera-card',
+    action: () => { switchMode('receive'); }
+  },
+  {
+    title: 'Body Pain Map',
+    desc: '13 tappable anatomical zones with a 0–10 severity scale. Pain reports are logged to the session transcript for provider review.',
+    target: '.body-map-section',
+    action: () => { switchMode('receive'); }
+  },
+  {
+    title: 'Session Log',
+    desc: 'All interactions — voice commands, ASL detections, mode switches — are timestamped in a running session log for documentation.',
+    target: '#logScreen',
+    action: () => { switchMode('send'); switchTab('logScreen', document.querySelectorAll('.tab')[1]); }
+  },
+];
+
+function startDemo() {
+  demoActive = true;
+  demoStep = 0;
+  showDemoStep();
+}
+
+function showDemoStep() {
+  const step = demoSteps[demoStep];
+  if(!step) { endDemo(); return; }
+  if(step.action) step.action();
+
+  const tooltip = document.getElementById('demoTooltip');
+  document.getElementById('dtStep').textContent = `Step ${demoStep + 1} of ${demoSteps.length}`;
+  document.getElementById('dtTitle').textContent = step.title;
+  document.getElementById('dtDesc').textContent = step.desc;
+  document.getElementById('dtNext').textContent = demoStep < demoSteps.length - 1 ? 'Next →' : 'Finish';
+
+  tooltip.style.bottom = '130px';
+  tooltip.style.left = '50%';
+  tooltip.style.transform = 'translateX(-50%)';
+  tooltip.style.top = 'auto';
+  tooltip.style.right = 'auto';
+  tooltip.classList.add('visible');
+}
+
+function nextDemoStep() {
+  demoStep++;
+  if(demoStep >= demoSteps.length) { endDemo(); return; }
+  showDemoStep();
+}
+
+function endDemo() {
+  demoActive = false;
+  document.getElementById('demoTooltip').classList.remove('visible');
+  closeASLOverlay();
+  switchMode('send');
+  switchTab('commandScreen', document.querySelector('.tab'));
+}
+
+// ===== COMMAND DATA (70 LinguaMed MADE Labs commands) =====
+const commandData = {
+  'All': [
+    'I am going to examine you','Open your mouth','Take a deep breath','I need to check your blood pressure',
+    'Look straight ahead','Follow my finger with your eyes','Squeeze my hand','Lift your arm',
+    'Does this hurt?','Point to where it hurts','Rate your pain 1 to 10','Are you in pain?',
+    'You are going to have surgery','We need to put you to sleep','The surgery went well','You are in the recovery room',
+    'I am your doctor','I am your nurse','My name is','We are here to help you',
+    'Do you understand?','Nod yes or shake no','Do you have allergies?','Have you eaten today?',
+    'Can you swallow?','Are you nauseous?','Do you feel dizzy?','Do you need water?',
+    'I will give you medicine','This is for pain','This will help you sleep','Take this medication',
+    'We need to take blood','I need to start an IV','This will pinch a little','Stay still please',
+    'Breathe in','Breathe out','Hold your breath','Cough for me',
+    'Turn to your left','Turn to your right','Sit up please','Lie down please',
+    'You need to rest','Do not eat or drink','You can go home today','Someone will come for you',
+    'Press the call button if you need help','A translator is coming','Your family is here','Visiting hours are over',
+    'We need your consent','Please sign here','Do you have questions?','I will explain the procedure',
+    'You will feel pressure','You will feel cold','This will be quick','Try to relax',
+    'Everything is going well','You are doing great','Almost done','You are safe',
+    'We need an X-ray','We need a CT scan','We need to run tests','Results will take time',
+    'You need to come back','Follow up in one week','Take your medicine as prescribed','Call if you have problems'
+  ],
+  'Exam': ['I am going to examine you','Open your mouth','Take a deep breath','I need to check your blood pressure','Look straight ahead','Follow my finger with your eyes','Squeeze my hand','Lift your arm','Breathe in','Breathe out','Hold your breath','Cough for me'],
+  'Pain': ['Does this hurt?','Point to where it hurts','Rate your pain 1 to 10','Are you in pain?','I will give you medicine','This is for pain','You will feel pressure','You will feel cold'],
+  'Surgery': ['You are going to have surgery','We need to put you to sleep','The surgery went well','You are in the recovery room','We need your consent','Please sign here','I will explain the procedure','This will be quick'],
+  'Identity': ['I am your doctor','I am your nurse','My name is','We are here to help you','A translator is coming','Your family is here'],
+  'Assessment': ['Do you understand?','Nod yes or shake no','Do you have allergies?','Have you eaten today?','Can you swallow?','Are you nauseous?','Do you feel dizzy?','Do you need water?','Do you have questions?'],
+  'Instructions': ['Turn to your left','Turn to your right','Sit up please','Lie down please','You need to rest','Do not eat or drink','Stay still please','Try to relax','Press the call button if you need help'],
+  'Discharge': ['You can go home today','Someone will come for you','You need to come back','Follow up in one week','Take your medicine as prescribed','Call if you have problems','Results will take time']
+};
+
+// ===== SPANISH TRANSLATIONS =====
+const spanishTranslations = {
+  'I am going to examine you': 'Voy a examinarle',
+  'Open your mouth': 'Abra la boca',
+  'Take a deep breath': 'Respire profundo',
+  'I need to check your blood pressure': 'Necesito revisar su presión arterial',
+  'Look straight ahead': 'Mire hacia adelante',
+  'Follow my finger with your eyes': 'Siga mi dedo con los ojos',
+  'Squeeze my hand': 'Apriete mi mano',
+  'Lift your arm': 'Levante el brazo',
+  'Does this hurt?': '¿Le duele esto?',
+  'Point to where it hurts': 'Señale dónde le duele',
+  'Rate your pain 1 to 10': 'Califique su dolor del 1 al 10',
+  'Are you in pain?': '¿Tiene dolor?',
+  'You are going to have surgery': 'Va a tener una cirugía',
+  'We need to put you to sleep': 'Necesitamos ponerle anestesia',
+  'The surgery went well': 'La cirugía salió bien',
+  'You are in the recovery room': 'Está en la sala de recuperación',
+  'I am your doctor': 'Soy su doctor(a)',
+  'I am your nurse': 'Soy su enfermero(a)',
+  'My name is': 'Mi nombre es',
+  'We are here to help you': 'Estamos aquí para ayudarle',
+  'Do you understand?': '¿Entiende?',
+  'Nod yes or shake no': 'Asienta sí o niegue con la cabeza',
+  'Do you have allergies?': '¿Tiene alergias?',
+  'Have you eaten today?': '¿Ha comido hoy?',
+  'Can you swallow?': '¿Puede tragar?',
+  'Are you nauseous?': '¿Tiene náuseas?',
+  'Do you feel dizzy?': '¿Se siente mareado(a)?',
+  'Do you need water?': '¿Necesita agua?',
+  'I will give you medicine': 'Le voy a dar medicina',
+  'This is for pain': 'Esto es para el dolor',
+  'This will help you sleep': 'Esto le ayudará a dormir',
+  'Take this medication': 'Tome este medicamento',
+  'We need to take blood': 'Necesitamos sacarle sangre',
+  'I need to start an IV': 'Necesito ponerle un suero',
+  'This will pinch a little': 'Esto va a pellizcar un poco',
+  'Stay still please': 'No se mueva por favor',
+  'Breathe in': 'Inhale',
+  'Breathe out': 'Exhale',
+  'Hold your breath': 'Aguante la respiración',
+  'Cough for me': 'Tosa por favor',
+  'Turn to your left': 'Voltee a la izquierda',
+  'Turn to your right': 'Voltee a la derecha',
+  'Sit up please': 'Siéntese por favor',
+  'Lie down please': 'Acuéstese por favor',
+  'You need to rest': 'Necesita descansar',
+  'Do not eat or drink': 'No coma ni beba',
+  'You can go home today': 'Puede irse a casa hoy',
+  'Someone will come for you': 'Alguien vendrá por usted',
+  'Press the call button if you need help': 'Presione el botón de llamada si necesita ayuda',
+  'A translator is coming': 'Un traductor viene en camino',
+  'Your family is here': 'Su familia está aquí',
+  'Visiting hours are over': 'Las horas de visita terminaron',
+  'We need your consent': 'Necesitamos su consentimiento',
+  'Please sign here': 'Firme aquí por favor',
+  'Do you have questions?': '¿Tiene preguntas?',
+  'I will explain the procedure': 'Le voy a explicar el procedimiento',
+  'You will feel pressure': 'Va a sentir presión',
+  'You will feel cold': 'Va a sentir frío',
+  'This will be quick': 'Esto será rápido',
+  'Try to relax': 'Trate de relajarse',
+  'Everything is going well': 'Todo va bien',
+  'You are doing great': 'Lo está haciendo muy bien',
+  'Almost done': 'Ya casi terminamos',
+  'You are safe': 'Está seguro(a)',
+  'We need an X-ray': 'Necesitamos una radiografía',
+  'We need a CT scan': 'Necesitamos una tomografía',
+  'We need to run tests': 'Necesitamos hacer pruebas',
+  'Results will take time': 'Los resultados tomarán tiempo',
+  'You need to come back': 'Necesita regresar',
+  'Follow up in one week': 'Seguimiento en una semana',
+  'Take your medicine as prescribed': 'Tome su medicina como le indicaron',
+  'Call if you have problems': 'Llame si tiene problemas'
+};
+
+// ===== GHOST HAND GESTURE SHAPES =====
+// Each gesture has finger paths for left and right hands
+// Paths: d attribute for SVG path (finger curves)
+const ghostGestures = {
+  'default': {
+    label: 'Open Palm',
+    L: {
+      fingers: [
+        'M49 75 Q47 40 44 20', 'M59 70 Q57 36 55 13',
+        'M70 70 Q70 36 70 10', 'M80 73 Q82 40 85 18', 'M94 88 Q106 72 114 62'
+      ],
+      tips: [[44,20,6],[55,13,6],[70,10,6],[85,18,6],[114,62,5.5]]
+    },
+    R: {
+      fingers: [
+        'M81 75 Q83 40 86 20', 'M71 70 Q73 36 75 13',
+        'M60 70 Q60 36 60 10', 'M50 73 Q48 40 45 18', 'M36 88 Q24 72 16 62'
+      ],
+      tips: [[86,20,6],[75,13,6],[60,10,6],[45,18,6],[16,62,5.5]]
+    }
+  },
+  'breathe': {
+    label: 'Cupped Hands',
+    L: {
+      fingers: [
+        'M49 75 Q48 50 49 36', 'M59 70 Q58 47 57 31',
+        'M70 70 Q70 47 71 28', 'M80 73 Q81 50 83 36', 'M94 88 Q101 78 106 70'
+      ],
+      tips: [[49,36,5.5],[57,31,5.5],[71,28,5.5],[83,36,5.5],[106,70,5]]
+    },
+    R: {
+      fingers: [
+        'M81 75 Q82 50 81 36', 'M71 70 Q72 47 73 31',
+        'M60 70 Q60 47 59 28', 'M50 73 Q49 50 47 36', 'M36 88 Q29 78 24 70'
+      ],
+      tips: [[81,36,5.5],[73,31,5.5],[59,28,5.5],[47,36,5.5],[24,70,5]]
+    }
+  },
+  'reassure': {
+    label: 'Flat Palm',
+    L: {
+      fingers: [
+        'M49 75 Q47 44 45 23', 'M59 70 Q57 38 56 16',
+        'M70 70 Q70 38 70 13', 'M80 73 Q82 42 84 21', 'M94 88 Q104 75 112 65'
+      ],
+      tips: [[45,23,6],[56,16,6],[70,13,6],[84,21,6],[112,65,5.5]]
+    },
+    R: {
+      fingers: [
+        'M81 75 Q83 44 85 23', 'M71 70 Q73 38 74 16',
+        'M60 70 Q60 38 60 13', 'M50 73 Q48 42 46 21', 'M36 88 Q26 75 18 65'
+      ],
+      tips: [[85,23,6],[74,16,6],[60,13,6],[46,21,6],[18,65,5.5]]
+    }
+  },
+  'look': {
+    label: 'Pointing',
+    L: {
+      fingers: [
+        'M49 75 Q49 65 52 58', 'M59 70 Q57 36 55 10',
+        'M70 70 Q70 62 71 57', 'M80 73 Q80 65 82 60', 'M94 88 Q99 83 101 78'
+      ],
+      tips: [[52,58,4],[55,10,7],[71,57,4],[82,60,4],[101,78,4]]
+    },
+    R: {
+      fingers: [
+        'M81 75 Q81 65 78 58', 'M71 70 Q73 36 75 10',
+        'M60 70 Q60 62 59 57', 'M50 73 Q50 65 48 60', 'M36 88 Q31 83 29 78'
+      ],
+      tips: [[78,58,4],[75,10,7],[59,57,4],[48,60,4],[29,78,4]]
+    }
+  },
+  'stop': {
+    label: 'Stop',
+    L: {
+      fingers: [
+        'M49 75 Q44 34 42 10', 'M59 70 Q55 28 52 5',
+        'M70 70 Q70 28 70 3', 'M80 73 Q85 32 88 8', 'M94 88 Q109 68 120 54'
+      ],
+      tips: [[42,10,7],[52,5,7],[70,3,7],[88,8,7],[120,54,6.5]]
+    },
+    R: {
+      fingers: [
+        'M81 75 Q86 34 88 10', 'M71 70 Q75 28 78 5',
+        'M60 70 Q60 28 60 3', 'M50 73 Q45 32 42 8', 'M36 88 Q21 68 10 54'
+      ],
+      tips: [[88,10,7],[78,5,7],[60,3,7],[42,8,7],[10,54,6.5]]
+    }
+  },
+  'pain': {
+    label: 'Fist',
+    L: {
+      fingers: [
+        'M49 75 Q52 73 54 75', 'M59 70 Q61 68 62 71',
+        'M70 70 Q70 68 69 71', 'M80 73 Q79 71 78 74', 'M94 88 Q96 86 95 88'
+      ],
+      tips: [[54,75,4],[62,71,4],[69,71,4],[78,74,4],[95,88,4]]
+    },
+    R: {
+      fingers: [
+        'M81 75 Q78 73 76 75', 'M71 70 Q69 68 68 71',
+        'M60 70 Q60 68 61 71', 'M50 73 Q51 71 52 74', 'M36 88 Q34 86 35 88'
+      ],
+      tips: [[76,75,4],[68,71,4],[61,71,4],[52,74,4],[35,88,4]]
+    }
+  }
+};
+
+function getGestureType(phrase) {
+  const p = phrase.toLowerCase();
+  if(p.includes('breath') || p.includes('relax') || p.includes('calm')) return 'breathe';
+  if(p.includes('safe') || p.includes('well') || p.includes('great') || p.includes('help you') || p.includes('worry')) return 'reassure';
+  if(p.includes('look') || p.includes('follow') || p.includes('point') || p.includes('eye')) return 'look';
+  if(p.includes('stop') || p.includes('emergency') || p.includes('wait') || p.includes('still')) return 'stop';
+  if(p.includes('hurt') || p.includes('pain') || p.includes('squeeze') || p.includes('pinch')) return 'pain';
+  return 'default';
+}
+
+// ===== INIT =====
+function init() {
+  renderPills();
+  renderCommands('All');
+  renderQuickPhrases();
+  initSpeechRecognition();
+  addLogEntry('system', 'SignBridge v5.1 initialized');
+}
+
+function switchTab(screenId, tabEl) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(screenId).classList.add('active');
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  tabEl.classList.add('active');
+}
+
+function renderPills() {
+  const row = document.getElementById('pillRow');
+  const cats = Object.keys(commandData);
+  row.innerHTML = cats.map(cat =>
+    `<button class="pill ${cat === 'All' ? 'active' : ''}" onclick="selectCategory('${cat}', this)">${cat}</button>`
+  ).join('');
+}
+
+function selectCategory(cat, el) {
+  document.querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
+  el.classList.add('active');
+  renderCommands(cat);
+}
+
+// SVG icon picker based on command keywords
+function getCmdIcon(cmd) {
+  const c = cmd.toLowerCase();
+  // Exam / body
+  if(c.includes('examine') || c.includes('check')) return '<svg viewBox="0 0 24 24"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg>';
+  if(c.includes('mouth') || c.includes('swallow') || c.includes('cough')) return '<svg viewBox="0 0 24 24"><path d="M12 18c-4 0-6-3-6-6s2-6 6-6 6 3 6 6-2 6-6 6z"/><path d="M9 14h6"/></svg>';
+  if(c.includes('breath') || c.includes('breathe')) return '<svg viewBox="0 0 24 24"><path d="M3 12c3-6 6-6 9 0s6 6 9 0"/><path d="M3 12c3 6 6 6 9 0s6-6 9 0" opacity="0.4"/></svg>';
+  if(c.includes('blood pressure') || c.includes('blood')) return '<svg viewBox="0 0 24 24"><path d="M12 21c-4-4-8-7-8-11a4 4 0 0 1 8 0 4 4 0 0 1 8 0c0 4-4 7-8 11z"/></svg>';
+  if(c.includes('eye') || c.includes('look') || c.includes('ahead')) return '<svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
+  if(c.includes('hand') || c.includes('squeeze')) return '<svg viewBox="0 0 24 24"><path d="M18 11V6a2 2 0 0 0-4 0"/><path d="M14 10V4a2 2 0 0 0-4 0v6"/><path d="M10 10.5V6a2 2 0 0 0-4 0v8"/><path d="M18 8a2 2 0 0 1 4 0v7a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.9-5.9-2.4L3 16.5"/></svg>';
+  if(c.includes('arm') || c.includes('lift')) return '<svg viewBox="0 0 24 24"><path d="M12 22V8"/><path d="M5 12l7-7 7 7"/></svg>';
+  // Pain
+  if(c.includes('hurt') || c.includes('pain')) return '<svg viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>';
+  if(c.includes('point') || c.includes('where')) return '<svg viewBox="0 0 24 24"><path d="M12 22s-8-4.5-8-11.8A8 8 0 0 1 12 2a8 8 0 0 1 8 8.2c0 7.3-8 11.8-8 11.8z"/><circle cx="12" cy="10" r="3"/></svg>';
+  if(c.includes('rate') || c.includes('1 to 10')) return '<svg viewBox="0 0 24 24"><path d="M4 20h16"/><path d="M4 20V10"/><path d="M10 20V4"/><path d="M16 20V12"/></svg>';
+  // Surgery
+  if(c.includes('surgery') || c.includes('procedure') || c.includes('surgical')) return '<svg viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>';
+  if(c.includes('sleep') || c.includes('anesthesia')) return '<svg viewBox="0 0 24 24"><path d="M2 12a5 5 0 0 0 5 5 8 8 0 0 1 5 2 8 8 0 0 1 5-2 5 5 0 0 0 5-5V7h-5a8 8 0 0 0-5 2 8 8 0 0 0-5-2H2z"/></svg>';
+  if(c.includes('recovery')) return '<svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>';
+  if(c.includes('well') || c.includes('great') || c.includes('doing') || c.includes('safe')) return '<svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="M22 4L12 14.01l-3-3"/></svg>';
+  // Identity
+  if(c.includes('doctor') || c.includes('nurse') || c.includes('name')) return '<svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
+  if(c.includes('help you') || c.includes('here to')) return '<svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>';
+  // Assessment
+  if(c.includes('understand') || c.includes('nod') || c.includes('question')) return '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>';
+  if(c.includes('allerg')) return '<svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>';
+  if(c.includes('eaten') || c.includes('eat') || c.includes('drink') || c.includes('water')) return '<svg viewBox="0 0 24 24"><path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></svg>';
+  if(c.includes('nauseous') || c.includes('dizzy')) return '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M8 15s1.5-2 4-2 4 2 4 2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>';
+  // Medication
+  if(c.includes('medicine') || c.includes('medication') || c.includes('prescribed')) return '<svg viewBox="0 0 24 24"><path d="M10.5 1.5H8A6.5 6.5 0 0 0 1.5 8v0a6.5 6.5 0 0 0 6.5 6.5h0a6.5 6.5 0 0 0 6.5-6.5v0A6.5 6.5 0 0 0 8 1.5" transform="rotate(45 12 12)"/><line x1="12" y1="6" x2="12" y2="18"/></svg>';
+  // IV / needles
+  if(c.includes('iv') || c.includes('pinch') || c.includes('needle')) return '<svg viewBox="0 0 24 24"><path d="M7 21l3-3"/><path d="M12.22 2.94l6.84 6.84"/><path d="M17.64 8.36L8.36 17.64"/><path d="M2 12l4-4"/></svg>';
+  // Movement / positioning
+  if(c.includes('left') || c.includes('right') || c.includes('turn')) return '<svg viewBox="0 0 24 24"><path d="M14 9l6 6-6 6"/><path d="M4 4v7a4 4 0 0 0 4 4h12"/></svg>';
+  if(c.includes('sit') || c.includes('lie') || c.includes('still') || c.includes('rest')) return '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><path d="M3 12h18"/></svg>';
+  // Communication
+  if(c.includes('call') || c.includes('button')) return '<svg viewBox="0 0 24 24"><path d="M15.05 5A5 5 0 0 1 19 8.95M15.05 1A9 9 0 0 1 23 8.94m-1 7.98v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>';
+  if(c.includes('translator') || c.includes('family') || c.includes('visiting')) return '<svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>';
+  // Consent / signing
+  if(c.includes('consent') || c.includes('sign here') || c.includes('explain')) return '<svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>';
+  // Feelings
+  if(c.includes('pressure') || c.includes('cold')) return '<svg viewBox="0 0 24 24"><path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/></svg>';
+  if(c.includes('quick') || c.includes('almost') || c.includes('done')) return '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>';
+  if(c.includes('relax')) return '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>';
+  // Imaging / tests
+  if(c.includes('x-ray') || c.includes('ct scan') || c.includes('test') || c.includes('result')) return '<svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>';
+  // Discharge / follow up
+  if(c.includes('home') || c.includes('come for you') || c.includes('come back') || c.includes('follow up')) return '<svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></svg>';
+  if(c.includes('problem')) return '<svg viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.79 19.79 0 0 1 2.12 4.11 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>';
+  // Finger follow
+  if(c.includes('finger') || c.includes('follow my')) return '<svg viewBox="0 0 24 24"><path d="M18 11V6a2 2 0 0 0-4 0"/><path d="M14 10V4a2 2 0 0 0-4 0v6"/><path d="M10 10.5V6a2 2 0 0 0-4 0v8"/><path d="M18 8a2 2 0 0 1 4 0v7a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.9-5.9-2.4L3 16.5"/></svg>';
+  // Default: generic ASL/hand sign icon
+  return '<svg viewBox="0 0 24 24"><path d="M7 11V4a2 2 0 0 1 4 0v3"/><path d="M11 7V3a2 2 0 0 1 4 0v4"/><path d="M15 6V4a2 2 0 0 1 4 0v7"/><path d="M7 11a2 2 0 0 0-4 0v4a8 8 0 0 0 8 8h1a8 8 0 0 0 8-8v-1"/></svg>';
+}
+
+function cmdHTML(cmd) {
+  const icon = getCmdIcon(cmd);
+  const spanish = spanishTranslations[cmd] || '';
+
+  const spanishLine = spanish ? `<div class="cmd-spanish">${spanish}</div>` : '';
+  return `<div class="cmd-btn" onclick="showASLSign('${cmd.replace(/'/g, "\\'")}')">
+    <div class="cmd-icon">${icon}</div>
+    <div style="flex:1;min-width:0;">
+      <div class="cmd-label">${cmd}</div>
+      ${spanishLine}
+    </div>
+    <div class="cmd-arrow">→</div>
+  </div>`;
+}
+
+function renderCommands(cat) {
+  const grid = document.getElementById('commandGrid');
+  const cmds = commandData[cat] || [];
+  grid.innerHTML = cmds.map(cmd => cmdHTML(cmd)).join('');
+}
+
+function filterCommands(query) {
+  const q = query.toLowerCase().trim();
+  if(!q) { renderCommands('All'); return; }
+  // Search both English and Spanish
+  const filtered = commandData['All'].filter(c => {
+    if(c.toLowerCase().includes(q)) return true;
+    const sp = spanishTranslations[c];
+    if(sp && sp.toLowerCase().includes(q)) return true;
+    return false;
+  });
+  const grid = document.getElementById('commandGrid');
+  grid.innerHTML = filtered.map(cmd => cmdHTML(cmd)).join('');
+}
+
+
+// ===== ASL OVERLAY (Ghost Hands) =====
+function showASLSign(phrase) {
+  currentSigningPhrase = phrase;
+  const overlay = document.getElementById('aslOverlay');
+  const phraseText = document.getElementById('aslPhraseText');
+  const progressBar = document.getElementById('aslProgressBar');
+
+  phraseText.textContent = phrase;
+  progressBar.style.width = '0%';
+  overlay.classList.add('active');
+
+  addLogEntry('cmd', 'Signing: ' + phrase);
+
+  const gestureType = getGestureType(phrase);
+  startGhostHandAnimation(gestureType);
+
+  // Progress bar
+  let progress = 0;
+  overlay._progressInterval = setInterval(() => {
+    progress += 2;
+    progressBar.style.width = Math.min(progress, 100) + '%';
+    if(progress >= 100) clearInterval(overlay._progressInterval);
+  }, 80);
+}
+
+function startGhostHandAnimation(gestureType) {
+  stopGhostHandAnimation();
+
+  const gesture = ghostGestures[gestureType] || ghostGestures['default'];
+  const handL = document.getElementById('ghostHandL');
+  const handR = document.getElementById('ghostHandR');
+  const label = document.getElementById('gestureLabel');
+
+  // Show hands
+  handL.classList.add('visible', 'animating');
+  handR.classList.add('visible', 'animating');
+
+  // Set gesture label
+  label.textContent = gesture.label;
+  label.classList.add('visible');
+
+  // Apply finger shapes
+  applyGhostFingers('L', gesture.L);
+  applyGhostFingers('R', gesture.R);
+
+  // Animate between slight variations
+  let frame = 0;
+  aslAnimTimer = setInterval(() => {
+    frame++;
+    const sway = Math.sin(frame * 0.3) * 3;
+    const bob = Math.cos(frame * 0.2) * 2;
+    handL.style.transform = `translate(${sway}px, ${bob}px) rotate(${sway * 0.5}deg)`;
+    handR.style.transform = `translate(${-sway}px, ${bob}px) rotate(${-sway * 0.5}deg)`;
+  }, 60);
+}
+
+function applyGhostFingers(side, config) {
+  config.fingers.forEach((d, i) => {
+    const path = document.getElementById(`gf${side}${i+1}`);
+    if(path) path.setAttribute('d', d);
+    // Auto-generate mid-segment: take the first 60% of the finger path
+    const mid = document.getElementById(`gm${side}${i+1}`);
+    if(mid) {
+      // Parse start and control/end from the finger path to create a shorter mid
+      const parts = d.match(/M([\d.]+)\s([\d.]+)\sQ([\d.]+)\s([\d.]+)\s([\d.]+)\s([\d.]+)/);
+      if(parts) {
+        const sx = +parts[1], sy = +parts[2], cx = +parts[3], cy = +parts[4], ex = +parts[5], ey = +parts[6];
+        const mx = sx + (cx - sx) * 0.7, my = sy + (cy - sy) * 0.7;
+        const mex = sx + (ex - sx) * 0.5, mey = sy + (ey - sy) * 0.5;
+        mid.setAttribute('d', `M${sx} ${sy} Q${mx.toFixed(0)} ${my.toFixed(0)} ${mex.toFixed(0)} ${mey.toFixed(0)}`);
+      }
+    }
+  });
+  config.tips.forEach((t, i) => {
+    const tip = document.getElementById(`gt${side}${i+1}`);
+    if(tip) {
+      tip.setAttribute('cx', t[0]);
+      tip.setAttribute('cy', t[1]);
+      tip.setAttribute('r', t[2]);
+    }
+  });
+}
+
+function stopGhostHandAnimation() {
+  if(aslAnimTimer) { clearInterval(aslAnimTimer); aslAnimTimer = null; }
+  const handL = document.getElementById('ghostHandL');
+  const handR = document.getElementById('ghostHandR');
+  const label = document.getElementById('gestureLabel');
+  if(handL) { handL.classList.remove('visible','animating'); handL.style.transform = ''; }
+  if(handR) { handR.classList.remove('visible','animating'); handR.style.transform = ''; }
+  if(label) label.classList.remove('visible');
+}
+
+function replayASL() {
+  closeASLOverlay();
+  setTimeout(() => showASLSign(currentSigningPhrase), 200);
+}
+
+function closeASLOverlay() {
+  const overlay = document.getElementById('aslOverlay');
+  overlay.classList.remove('active');
+  stopGhostHandAnimation();
+  if(overlay._progressInterval) clearInterval(overlay._progressInterval);
+  // Stop any TTS in progress
+  if(ttsReady) speechSynthesis.cancel();
+  document.querySelectorAll('.tts-btn').forEach(b => b.classList.remove('speaking'));
+}
+
+// ===== FAVORITES (Quick Phrases) =====
+function renderQuickPhrases() {
+  const container = document.getElementById('quickPhrases');
+  const phrases = ['You are safe', "Don't worry", 'Surgery is over', 'Take a deep breath', 'Everything went well'];
+  const icons = ['♡', '⤝', '✓', '◉', '★'];
+  const bgs = ['var(--success-light)', 'var(--primary-light)', 'var(--success-light)', 'var(--warning-light)', 'var(--danger-light)'];
+  container.innerHTML = '';
+  phrases.forEach((p, i) => {
+    const div = document.createElement('div');
+    div.className = 'quick-action';
+    div.innerHTML = `
+      <div class="qa-icon" style="background:${bgs[i]}">${icons[i]}</div>
+      <div class="qa-text">${p}</div>
+      <div class="qa-arrow">→</div>
+    `;
+    div.onclick = () => showASLSign(p);
+    container.appendChild(div);
+  });
+}
+
+// ===== SPEECH RECOGNITION (merged into search bar) =====
+function initSpeechRecognition() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if(!SR) return;
+  recognition = new SR();
+  recognition.continuous = false;
+  recognition.interimResults = true;
+  recognition.lang = 'en-US';
+
+  recognition.onresult = (e) => {
+    const transcript = Array.from(e.results).map(r => r[0].transcript).join('');
+    document.getElementById('searchInput').value = transcript;
+    filterCommands(transcript);
+    if(e.results[0].isFinal) {
+      matchCommand(transcript);
+      addLogEntry('voice', 'Provider said: ' + transcript);
+    }
+  };
+  recognition.onerror = () => {
+    isListening = false;
+    document.getElementById('micSearchBtn').classList.remove('listening');
+  };
+  recognition.onend = () => {
+    isListening = false;
+    document.getElementById('micSearchBtn').classList.remove('listening');
+  };
+}
+
+function toggleMic() {
+  if(!recognition) return;
+  if(isListening) {
+    recognition.stop();
+  } else {
+    recognition.start();
+    isListening = true;
+    document.getElementById('micSearchBtn').classList.add('listening');
+    document.getElementById('searchInput').value = '';
+    document.getElementById('searchInput').placeholder = 'Listening...';
+  }
+}
+
+function matchCommand(transcript) {
+  const t = transcript.toLowerCase().trim();
+  let bestMatch = null; let bestScore = 0;
+
+  commandData['All'].forEach(cmd => {
+    const c = cmd.toLowerCase();
+    const tWords = t.split(/\s+/);
+    const cWords = c.split(/\s+/);
+    let overlap = 0;
+    tWords.forEach(w => { if(cWords.includes(w)) overlap++; });
+    const score = overlap / Math.max(tWords.length, cWords.length);
+    if(score > bestScore) { bestScore = score; bestMatch = cmd; }
+    if(c.includes(t) || t.includes(c)) { bestScore = 1; bestMatch = cmd; }
+  });
+
+  const card = document.getElementById('voiceMatchInline');
+  document.getElementById('searchInput').placeholder = 'Search 70 perioperative commands...';
+
+  if(bestMatch && bestScore > 0.3) {
+    voiceMatchedCmd = bestMatch;
+    const confidence = Math.round(bestScore * 100);
+    const confColor = confidence >= 80 ? 'var(--success)' : confidence >= 50 ? 'var(--warning)' : 'var(--danger)';
+    const confLabel = confidence >= 80 ? 'High match' : confidence >= 50 ? 'Moderate' : 'Low match';
+
+    document.getElementById('vmiConf').textContent = confidence + '%';
+    document.getElementById('vmiConf').style.color = confColor;
+    document.getElementById('vmiPhrase').textContent = bestMatch;
+    document.getElementById('vmiStatus').textContent = confLabel;
+    card.classList.add('visible');
+  } else {
+    card.classList.remove('visible');
+    voiceMatchedCmd = null;
+  }
+}
+
+function sendVoiceMatch() {
+  if(voiceMatchedCmd) showASLSign(voiceMatchedCmd);
+  dismissVoiceMatch();
+}
+
+function dismissVoiceMatch() {
+  document.getElementById('voiceMatchInline').classList.remove('visible');
+  voiceMatchedCmd = null;
+}
+
+// ===== CAMERA + MEDIAPIPE (Patient/Receive mode only) =====
+let mpHands = null;
+let patientMpCamera = null;
+let handDetections = [];
+
+function initMediaPipeHands() {
+  const statusEl = document.getElementById('handStatus');
+  try {
+    mpHands = new Hands({
+      locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/${file}`
+    });
+    mpHands.setOptions({
+      maxNumHands: 2,
+      modelComplexity: 1,
+      minDetectionConfidence: 0.6,
+      minTrackingConfidence: 0.5,
+    });
+    mpHands.onResults(onHandResults);
+    statusEl.innerHTML = '<div class="dot"></div>Hand model loaded — waiting for camera';
+  } catch(e) {
+    statusEl.innerHTML = '<div class="dot"></div>MediaPipe loading...';
+    setTimeout(initMediaPipeHands, 2000);
+  }
+}
+
+function onHandResults(results) {
+  const canvas = document.getElementById('patientHandCanvas');
+  if(!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const statusEl = document.getElementById('handStatus');
+  const countEl = document.getElementById('landmarkCount');
+
+  canvas.width = results.image.width;
+  canvas.height = results.image.height;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  if(results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+    const numHands = results.multiHandLandmarks.length;
+    statusEl.className = 'hand-status tracking';
+    statusEl.innerHTML = `<div class="dot"></div>${numHands} hand${numHands > 1 ? 's' : ''} tracked — 21 landmarks each`;
+    countEl.textContent = `${numHands * 21} landmarks`;
+    countEl.classList.add('visible');
+
+    for(const landmarks of results.multiHandLandmarks) {
+      drawConnectors(ctx, landmarks, HAND_CONNECTIONS, { color: 'rgba(37,99,235,0.6)', lineWidth: 2 });
+      drawLandmarks(ctx, landmarks, { color: 'rgba(37,99,235,0.9)', lineWidth: 1, radius: 3 });
+      const tips = [4, 8, 12, 16, 20];
+      tips.forEach(i => {
+        const lm = landmarks[i];
+        ctx.beginPath();
+        ctx.arc(lm.x * canvas.width, lm.y * canvas.height, 6, 0, 2 * Math.PI);
+        ctx.fillStyle = 'rgba(37,99,235,0.7)';
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(lm.x * canvas.width, lm.y * canvas.height, 10, 0, 2 * Math.PI);
+        ctx.strokeStyle = 'rgba(37,99,235,0.25)';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      });
+    }
+
+    detectSimpleGestures(results.multiHandLandmarks, results.multiHandedness);
+  } else {
+    statusEl.className = 'hand-status';
+    statusEl.innerHTML = '<div class="dot"></div>Scanning for hands...';
+    countEl.classList.remove('visible');
+  }
+}
+
+// ===== ASL RECOGNITION ENGINE (fingerpose-style landmark classifier) =====
+// Analyzes finger curl, direction, and relative positions from MediaPipe 21-landmark hand model
+// Recognizes: 26 ASL alphabet letters + common medical/communication gestures
+
+// Finger curl classification from landmarks
+const CURL = { NONE: 0, HALF: 1, FULL: 2 };
+const DIR = { UP: 0, DOWN: 1, LEFT: 2, RIGHT: 3, DIAG_UP_L: 4, DIAG_UP_R: 5, DIAG_DOWN_L: 6, DIAG_DOWN_R: 7 };
+
+function getFingerCurl(lm, finger) {
+  // finger: 'thumb'=0, 'index'=1, 'middle'=2, 'ring'=3, 'pinky'=4
+  const bases = [[1,2,3,4],[5,6,7,8],[9,10,11,12],[13,14,15,16],[17,18,19,20]];
+  const pts = bases[finger];
+  const mcp = lm[pts[0]], pip = lm[pts[1]], dip = lm[pts[2]], tip = lm[pts[3]];
+
+  if(finger === 0) {
+    // Thumb: use x-distance from base
+    const dist = Math.sqrt(Math.pow(tip.x-mcp.x,2)+Math.pow(tip.y-mcp.y,2));
+    const baseLen = Math.sqrt(Math.pow(dip.x-mcp.x,2)+Math.pow(dip.y-mcp.y,2));
+    if(dist > baseLen * 1.1) return CURL.NONE;
+    if(dist > baseLen * 0.7) return CURL.HALF;
+    return CURL.FULL;
+  }
+
+  // For fingers: compare tip-to-mcp distance vs pip-to-mcp distance
+  const tipToMcp = Math.sqrt(Math.pow(tip.x-mcp.x,2)+Math.pow(tip.y-mcp.y,2));
+  const pipToMcp = Math.sqrt(Math.pow(pip.x-mcp.x,2)+Math.pow(pip.y-mcp.y,2));
+
+  // Also check if tip is below (curled under) pip
+  const tipBelowPip = tip.y > pip.y;
+  const tipBelowDip = tip.y > dip.y;
+
+  if(tipToMcp > pipToMcp * 1.3 && !tipBelowPip) return CURL.NONE;
+  if(tipBelowDip && tipToMcp < pipToMcp * 0.9) return CURL.FULL;
+  return CURL.HALF;
+}
+
+function getFingerDir(lm, finger) {
+  const tips = [4,8,12,16,20];
+  const bases = [2,5,9,13,17];
+  const tip = lm[tips[finger]], base = lm[bases[finger]];
+  const dx = tip.x - base.x, dy = tip.y - base.y;
+  const angle = Math.atan2(-dy, dx) * 180 / Math.PI; // -dy because y is inverted
+
+  if(angle > 60 && angle <= 120) return DIR.UP;
+  if(angle > 120 || angle <= -120) return DIR.LEFT;
+  if(angle > -120 && angle <= -60) return DIR.DOWN;
+  if(angle > -60 && angle <= 0) return DIR.RIGHT;
+  if(angle > 0 && angle <= 60) return DIR.RIGHT;
+  return DIR.UP;
+}
+
+function dist2D(a, b) {
+  return Math.sqrt(Math.pow(a.x-b.x,2)+Math.pow(a.y-b.y,2));
+}
+
+function tipsTouching(lm, f1tip, f2tip, threshold) {
+  return dist2D(lm[f1tip], lm[f2tip]) < (threshold || 0.06);
+}
+
+// Analyze full hand pose
+function analyzeHand(lm) {
+  const curls = [0,1,2,3,4].map(f => getFingerCurl(lm, f));
+  const dirs = [0,1,2,3,4].map(f => getFingerDir(lm, f));
+  const thumbTip = lm[4], indexTip = lm[8], middleTip = lm[12], ringTip = lm[16], pinkyTip = lm[20];
+  const wrist = lm[0], indexMcp = lm[5], pinkyMcp = lm[17], middleMcp = lm[9];
+
+  // Palm facing camera? Check if wrist is below fingertips and fingers face up
+  const palmUp = wrist.y > indexMcp.y;
+  // Hand orientation: horizontal vs vertical
+  const handWidth = Math.abs(indexMcp.x - pinkyMcp.x);
+  const handHeight = Math.abs(wrist.y - middleMcp.y);
+  const isHorizontal = handWidth > handHeight * 0.8;
+
+  return { curls, dirs, thumbTip, indexTip, middleTip, ringTip, pinkyTip, wrist, indexMcp, pinkyMcp, middleMcp, palmUp, isHorizontal, lm };
+}
+
+// ASL Letter Definitions — each returns { match: boolean, confidence: number }
+const ASL_LETTERS = {
+  'A': (h) => {
+    // Fist with thumb alongside (not tucked)
+    const allCurled = h.curls[1]===CURL.FULL && h.curls[2]===CURL.FULL && h.curls[3]===CURL.FULL && h.curls[4]===CURL.FULL;
+    const thumbOut = h.curls[0] <= CURL.HALF;
+    const thumbBeside = h.thumbTip.y <= h.lm[5].y; // thumb tip near or above index mcp
+    return allCurled && thumbOut && thumbBeside ? 0.85 : 0;
+  },
+  'B': (h) => {
+    // All 4 fingers straight up, thumb curled across palm
+    const allUp = h.curls[1]===CURL.NONE && h.curls[2]===CURL.NONE && h.curls[3]===CURL.NONE && h.curls[4]===CURL.NONE;
+    const thumbIn = h.curls[0] >= CURL.HALF;
+    const fingersClose = dist2D(h.indexTip, h.pinkyTip) < 0.15;
+    return allUp && thumbIn && fingersClose ? 0.88 : 0;
+  },
+  'C': (h) => {
+    // All fingers half-curled forming C shape
+    const allHalf = h.curls[1]===CURL.HALF && h.curls[2]===CURL.HALF && h.curls[3]===CURL.HALF && h.curls[4]===CURL.HALF;
+    const thumbHalf = h.curls[0] <= CURL.HALF;
+    const gapExists = dist2D(h.thumbTip, h.indexTip) > 0.06;
+    return allHalf && thumbHalf && gapExists ? 0.82 : 0;
+  },
+  'D': (h) => {
+    // Index up, others curled, thumb touches middle finger
+    const indexUp = h.curls[1]===CURL.NONE;
+    const othersCurled = h.curls[2]>=CURL.HALF && h.curls[3]>=CURL.HALF && h.curls[4]>=CURL.HALF;
+    const thumbTouchMid = tipsTouching(h.lm, 4, 12, 0.08) || h.curls[0]>=CURL.HALF;
+    return indexUp && othersCurled && thumbTouchMid ? 0.84 : 0;
+  },
+  'E': (h) => {
+    // All fingers curled tightly, thumb curled in front
+    const allFull = h.curls[1]>=CURL.HALF && h.curls[2]>=CURL.HALF && h.curls[3]>=CURL.HALF && h.curls[4]>=CURL.HALF;
+    const thumbCurled = h.curls[0] >= CURL.HALF;
+    const thumbInFront = h.thumbTip.y > h.lm[6].y; // thumb below index pip
+    return allFull && thumbCurled && thumbInFront ? 0.78 : 0;
+  },
+  'F': (h) => {
+    // Thumb and index touching, other 3 fingers up
+    const thumbIndexTouch = tipsTouching(h.lm, 4, 8, 0.06);
+    const othersUp = h.curls[2]===CURL.NONE && h.curls[3]===CURL.NONE && h.curls[4]===CURL.NONE;
+    return thumbIndexTouch && othersUp ? 0.88 : 0;
+  },
+  'G': (h) => {
+    // Index pointing sideways, thumb out, others curled, hand horizontal
+    const indexOut = h.curls[1]===CURL.NONE;
+    const thumbOut = h.curls[0]===CURL.NONE;
+    const othersCurled = h.curls[2]>=CURL.HALF && h.curls[3]>=CURL.HALF && h.curls[4]>=CURL.HALF;
+    return indexOut && thumbOut && othersCurled && h.isHorizontal ? 0.80 : 0;
+  },
+  'H': (h) => {
+    // Index + middle pointing sideways, hand horizontal
+    const indexOut = h.curls[1]===CURL.NONE;
+    const middleOut = h.curls[2]===CURL.NONE;
+    const othersCurled = h.curls[3]>=CURL.HALF && h.curls[4]>=CURL.HALF;
+    return indexOut && middleOut && othersCurled && h.isHorizontal ? 0.82 : 0;
+  },
+  'I': (h) => {
+    // Only pinky up, all others curled
+    const pinkyUp = h.curls[4]===CURL.NONE;
+    const othersCurled = h.curls[0]>=CURL.HALF && h.curls[1]>=CURL.FULL && h.curls[2]>=CURL.FULL && h.curls[3]>=CURL.FULL;
+    return pinkyUp && othersCurled ? 0.86 : 0;
+  },
+  'K': (h) => {
+    // Index up, middle up angled, thumb between them
+    const indexUp = h.curls[1]===CURL.NONE;
+    const middleUp = h.curls[2]<=CURL.HALF;
+    const othersCurled = h.curls[3]>=CURL.HALF && h.curls[4]>=CURL.HALF;
+    const thumbBetween = h.thumbTip.x > Math.min(h.indexTip.x, h.middleTip.x) - 0.03;
+    return indexUp && middleUp && othersCurled && thumbBetween ? 0.78 : 0;
+  },
+  'L': (h) => {
+    // L shape: index up, thumb out to side, others curled
+    const indexUp = h.curls[1]===CURL.NONE && h.dirs[1]===DIR.UP;
+    const thumbOut = h.curls[0]===CURL.NONE;
+    const othersCurled = h.curls[2]>=CURL.FULL && h.curls[3]>=CURL.FULL && h.curls[4]>=CURL.FULL;
+    const perpendicular = Math.abs(h.indexTip.x - h.lm[5].x) < 0.08; // index goes straight up
+    return indexUp && thumbOut && othersCurled ? 0.88 : 0;
+  },
+  'M': (h) => {
+    // Three fingers (index, middle, ring) over thumb, pinky curled
+    const threeCurled = h.curls[1]>=CURL.HALF && h.curls[2]>=CURL.HALF && h.curls[3]>=CURL.HALF;
+    const pinkyCurled = h.curls[4]>=CURL.FULL;
+    const thumbUnder = h.thumbTip.y > h.lm[10].y;
+    return threeCurled && pinkyCurled && thumbUnder ? 0.72 : 0;
+  },
+  'N': (h) => {
+    // Two fingers (index, middle) over thumb, ring+pinky curled
+    const twoCurled = h.curls[1]>=CURL.HALF && h.curls[2]>=CURL.HALF;
+    const othersCurled = h.curls[3]>=CURL.FULL && h.curls[4]>=CURL.FULL;
+    const thumbBetween = h.thumbTip.y > h.lm[10].y;
+    return twoCurled && othersCurled && thumbBetween ? 0.70 : 0;
+  },
+  'O': (h) => {
+    // All fingertips touching thumb forming O
+    const allHalf = h.curls[1]>=CURL.HALF && h.curls[2]>=CURL.HALF && h.curls[3]>=CURL.HALF && h.curls[4]>=CURL.HALF;
+    const thumbTouch = tipsTouching(h.lm, 4, 8, 0.08);
+    return allHalf && thumbTouch ? 0.82 : 0;
+  },
+  'P': (h) => {
+    // Like K but pointing down
+    const indexDown = h.curls[1]===CURL.NONE;
+    const middleDown = h.curls[2]<=CURL.HALF;
+    const othersCurled = h.curls[3]>=CURL.HALF && h.curls[4]>=CURL.HALF;
+    const pointingDown = h.indexTip.y > h.lm[5].y;
+    return indexDown && middleDown && othersCurled && pointingDown ? 0.76 : 0;
+  },
+  'Q': (h) => {
+    // Like G but pointing down — index + thumb down, others curled
+    const indexDown = h.curls[1]===CURL.NONE && h.indexTip.y > h.lm[5].y;
+    const thumbDown = h.curls[0]===CURL.NONE;
+    const othersCurled = h.curls[2]>=CURL.HALF && h.curls[3]>=CURL.HALF && h.curls[4]>=CURL.HALF;
+    return indexDown && thumbDown && othersCurled ? 0.74 : 0;
+  },
+  'R': (h) => {
+    // Index and middle crossed, others curled
+    const indexUp = h.curls[1]===CURL.NONE;
+    const middleUp = h.curls[2]===CURL.NONE;
+    const othersCurled = h.curls[3]>=CURL.HALF && h.curls[4]>=CURL.HALF;
+    const crossed = Math.abs(h.indexTip.x - h.middleTip.x) < 0.03;
+    return indexUp && middleUp && othersCurled && crossed ? 0.80 : 0;
+  },
+  'S': (h) => {
+    // Fist with thumb over fingers (across front)
+    const allCurled = h.curls[1]===CURL.FULL && h.curls[2]===CURL.FULL && h.curls[3]===CURL.FULL && h.curls[4]===CURL.FULL;
+    const thumbCurled = h.curls[0] >= CURL.HALF;
+    const thumbInFront = h.thumbTip.y >= h.lm[6].y;
+    return allCurled && thumbCurled ? 0.76 : 0;
+  },
+  'T': (h) => {
+    // Fist with thumb between index and middle fingers
+    const allCurled = h.curls[1]>=CURL.FULL && h.curls[2]>=CURL.FULL && h.curls[3]>=CURL.FULL && h.curls[4]>=CURL.FULL;
+    const thumbBetween = h.curls[0]<=CURL.HALF && h.thumbTip.x > Math.min(h.lm[5].x, h.lm[9].x);
+    return allCurled && thumbBetween ? 0.72 : 0;
+  },
+  'U': (h) => {
+    // Index + middle up together, others curled
+    const indexUp = h.curls[1]===CURL.NONE;
+    const middleUp = h.curls[2]===CURL.NONE;
+    const othersCurled = h.curls[3]>=CURL.HALF && h.curls[4]>=CURL.HALF;
+    const close = dist2D(h.indexTip, h.middleTip) < 0.06;
+    const vertical = !h.isHorizontal;
+    return indexUp && middleUp && othersCurled && close && vertical ? 0.84 : 0;
+  },
+  'V': (h) => {
+    // Index + middle up spread (V/peace), others curled
+    const indexUp = h.curls[1]===CURL.NONE;
+    const middleUp = h.curls[2]===CURL.NONE;
+    const othersCurled = h.curls[3]>=CURL.HALF && h.curls[4]>=CURL.HALF;
+    const spread = dist2D(h.indexTip, h.middleTip) > 0.06;
+    return indexUp && middleUp && othersCurled && spread ? 0.86 : 0;
+  },
+  'W': (h) => {
+    // Index + middle + ring up, others curled
+    const threeUp = h.curls[1]===CURL.NONE && h.curls[2]===CURL.NONE && h.curls[3]===CURL.NONE;
+    const pinkyCurled = h.curls[4]>=CURL.HALF;
+    const thumbCurled = h.curls[0]>=CURL.HALF;
+    return threeUp && pinkyCurled && thumbCurled ? 0.86 : 0;
+  },
+  'X': (h) => {
+    // Index hooked (half curl), others curled
+    const indexHook = h.curls[1]===CURL.HALF;
+    const othersCurled = h.curls[2]>=CURL.FULL && h.curls[3]>=CURL.FULL && h.curls[4]>=CURL.FULL;
+    return indexHook && othersCurled ? 0.78 : 0;
+  },
+  'Y': (h) => {
+    // Thumb + pinky out, others curled (hang loose)
+    const thumbOut = h.curls[0]===CURL.NONE;
+    const pinkyOut = h.curls[4]===CURL.NONE;
+    const middleCurled = h.curls[1]>=CURL.FULL && h.curls[2]>=CURL.FULL && h.curls[3]>=CURL.FULL;
+    return thumbOut && pinkyOut && middleCurled ? 0.88 : 0;
+  },
+};
+
+// Medical / Communication gestures (higher priority)
+const MEDICAL_GESTURES = {
+  'HELP': (h) => {
+    // Flat hand on fist (simplified: one hand fist, thumb up on open palm)
+    // For single hand: thumb up with loose fist
+    const thumbUp = h.curls[0]===CURL.NONE && h.thumbTip.y < h.lm[2].y;
+    const othersCurled = h.curls[1]>=CURL.HALF && h.curls[2]>=CURL.HALF && h.curls[3]>=CURL.HALF && h.curls[4]>=CURL.HALF;
+    const thumbVertical = h.dirs[0]===DIR.UP;
+    return thumbUp && othersCurled && thumbVertical ? 0.82 : 0;
+  },
+  'YES': (h) => {
+    // Fist nodding (static: just fist / "S" handshape)
+    const allCurled = h.curls[1]>=CURL.FULL && h.curls[2]>=CURL.FULL && h.curls[3]>=CURL.FULL && h.curls[4]>=CURL.FULL;
+    const thumbCurled = h.curls[0]>=CURL.HALF;
+    return allCurled && thumbCurled ? 0.70 : 0;
+  },
+  'NO': (h) => {
+    // Index + middle snap to thumb (static: index+middle+thumb extended, close)
+    const indexUp = h.curls[1]<=CURL.HALF;
+    const middleUp = h.curls[2]<=CURL.HALF;
+    const thumbOut = h.curls[0]<=CURL.HALF;
+    const othersCurled = h.curls[3]>=CURL.HALF && h.curls[4]>=CURL.HALF;
+    const tipsClose = tipsTouching(h.lm, 4, 8, 0.07) || tipsTouching(h.lm, 4, 12, 0.07);
+    return indexUp && middleUp && thumbOut && othersCurled && tipsClose ? 0.78 : 0;
+  },
+  'PAIN': (h) => {
+    // Both index fingers pointing at each other (single hand: index pointing)
+    const indexUp = h.curls[1]===CURL.NONE;
+    const othersCurled = h.curls[2]>=CURL.FULL && h.curls[3]>=CURL.FULL && h.curls[4]>=CURL.FULL;
+    const thumbCurled = h.curls[0]>=CURL.HALF;
+    return indexUp && othersCurled && thumbCurled ? 0.76 : 0;
+  },
+  'STOP': (h) => {
+    // All fingers up, palm out — open hand
+    const allUp = h.curls[1]===CURL.NONE && h.curls[2]===CURL.NONE && h.curls[3]===CURL.NONE && h.curls[4]===CURL.NONE;
+    const thumbOut = h.curls[0]<=CURL.HALF;
+    return allUp && thumbOut ? 0.85 : 0;
+  },
+  'THANK YOU': (h) => {
+    // Flat hand from chin out (static: open hand, palm facing forward)
+    const allUp = h.curls[1]===CURL.NONE && h.curls[2]===CURL.NONE && h.curls[3]===CURL.NONE && h.curls[4]===CURL.NONE;
+    const thumbOut = h.curls[0]<=CURL.HALF;
+    const fingersClose = dist2D(h.indexTip, h.pinkyTip) < 0.12;
+    return allUp && thumbOut && fingersClose ? 0.80 : 0;
+  },
+  'OK / UNDERSTAND': (h) => {
+    // Thumb-index circle, other fingers up (F handshape = "OK" in many contexts)
+    const thumbIndexTouch = tipsTouching(h.lm, 4, 8, 0.06);
+    const othersUp = h.curls[2]===CURL.NONE && h.curls[3]===CURL.NONE && h.curls[4]===CURL.NONE;
+    return thumbIndexTouch && othersUp ? 0.88 : 0;
+  },
+  'WAIT': (h) => {
+    // Open hand, fingers wiggling (static: open hand, fingers spread)
+    const allUp = h.curls[1]===CURL.NONE && h.curls[2]===CURL.NONE && h.curls[3]===CURL.NONE && h.curls[4]===CURL.NONE;
+    const spread = dist2D(h.indexTip, h.pinkyTip) > 0.15;
+    return allUp && spread ? 0.78 : 0;
+  }
+};
+
+// Spelling buffer for fingerspelling mode
+let spellingBuffer = '';
+let spellingTimeout = null;
+let lastLetter = '';
+let lastLetterTime = 0;
+let aslMode = 'fingerspell'; // 'fingerspell' or 'gesture'
+
+// ===== SPELLING-TO-COMMAND BRIDGE =====
+// Fuzzy-matches fingerspelled words against perioperative commandData
+function matchSpellingToCommand(spelled) {
+  if(!spelled || spelled.length < 2) return null;
+  const input = spelled.toUpperCase();
+  const allCmds = commandData['All'] || [];
+  let bestMatch = null;
+  let bestScore = 0;
+
+  for(const cmd of allCmds) {
+    const cmdUpper = cmd.toUpperCase();
+    const words = cmdUpper.split(/\s+/);
+
+    // Strategy 1: Exact word match (spelled word appears as a word in the command)
+    for(const word of words) {
+      if(word === input) {
+        const score = 95;
+        if(score > bestScore) { bestScore = score; bestMatch = cmd; }
+      }
+    }
+
+    // Strategy 2: Word starts with spelled input (prefix match)
+    for(const word of words) {
+      if(word.startsWith(input) && input.length >= 3) {
+        const score = 80 + Math.min(15, Math.round((input.length / word.length) * 15));
+        if(score > bestScore) { bestScore = score; bestMatch = cmd; }
+      }
+    }
+
+    // Strategy 3: Command contains the spelled word as substring
+    if(cmdUpper.includes(input) && input.length >= 3) {
+      const score = 70 + Math.min(10, input.length);
+      if(score > bestScore) { bestScore = score; bestMatch = cmd; }
+    }
+
+    // Strategy 4: Levenshtein distance for close matches (typo tolerance)
+    for(const word of words) {
+      if(word.length >= 3 && input.length >= 3) {
+        const maxDist = input.length <= 4 ? 1 : 2;
+        const dist = levenshtein(input, word);
+        if(dist <= maxDist && dist < word.length * 0.4) {
+          const score = 60 + Math.round((1 - dist / word.length) * 30);
+          if(score > bestScore) { bestScore = score; bestMatch = cmd; }
+        }
+      }
+    }
+
+    // Strategy 5: Key medical keywords mapping
+    const medKeywords = {
+      'PAIN': ['pain','hurt','hurts'],
+      'BREATHE': ['breath','breathe','breathing'],
+      'SURGERY': ['surgery','surgical'],
+      'MEDICINE': ['medicine','medication','meds'],
+      'WATER': ['water','drink'],
+      'NAUSEOUS': ['nauseous','nausea'],
+      'DIZZY': ['dizzy','dizziness'],
+      'ALLERGY': ['allergies','allergy','allergic'],
+      'HELP': ['help'],
+      'REST': ['rest'],
+      'BLOOD': ['blood'],
+      'XRAY': ['x-ray','xray'],
+      'SCAN': ['scan','ct'],
+      'CONSENT': ['consent'],
+      'HOME': ['home'],
+      'FAMILY': ['family'],
+      'DOCTOR': ['doctor','dr'],
+      'NURSE': ['nurse'],
+      'SLEEP': ['sleep'],
+      'SWALLOW': ['swallow'],
+      'LEFT': ['left'],
+      'RIGHT': ['right'],
+      'SIT': ['sit'],
+      'LIE': ['lie','lying'],
+      'RELAX': ['relax'],
+      'SAFE': ['safe'],
+      'DONE': ['done'],
+    };
+
+    for(const [key, synonyms] of Object.entries(medKeywords)) {
+      if(input === key || synonyms.some(s => s.toUpperCase() === input)) {
+        for(const syn of synonyms) {
+          if(cmdUpper.includes(syn.toUpperCase())) {
+            const score = 88;
+            if(score > bestScore) { bestScore = score; bestMatch = cmd; }
+            break;
+          }
+        }
+      }
+    }
+  }
+
+  if(bestMatch && bestScore >= 60) {
+    return { cmd: bestMatch, score: bestScore };
+  }
+  return null;
+}
+
+// Levenshtein distance helper
+function levenshtein(a, b) {
+  const m = a.length, n = b.length;
+  const dp = Array.from({length: m+1}, () => Array(n+1).fill(0));
+  for(let i = 0; i <= m; i++) dp[i][0] = i;
+  for(let j = 0; j <= n; j++) dp[0][j] = j;
+  for(let i = 1; i <= m; i++) {
+    for(let j = 1; j <= n; j++) {
+      dp[i][j] = a[i-1] === b[j-1] ? dp[i-1][j-1] : 1 + Math.min(dp[i-1][j], dp[i][j-1], dp[i-1][j-1]);
+    }
+  }
+  return dp[m][n];
+}
+
+function detectSimpleGestures(handLandmarks, handedness) {
+  if(!cameraActive) return;
+  const now = Date.now();
+  if(now - (detectSimpleGestures._lastDetect || 0) < 350) return;
+
+  for(let hi = 0; hi < handLandmarks.length; hi++) {
+    const lm = handLandmarks[hi];
+    const hand = analyzeHand(lm);
+
+    // First check medical gestures (higher priority)
+    let bestGesture = null, bestScore = 0;
+    for(const [name, fn] of Object.entries(MEDICAL_GESTURES)) {
+      const score = fn(hand);
+      if(score > bestScore && score >= 0.75) { bestScore = score; bestGesture = { type: 'gesture', name, score }; }
+    }
+
+    // Then check ASL letters
+    let bestLetter = null, bestLetterScore = 0;
+    for(const [letter, fn] of Object.entries(ASL_LETTERS)) {
+      const score = fn(hand);
+      if(score > bestLetterScore && score >= 0.72) { bestLetterScore = score; bestLetter = { type: 'letter', name: letter, score }; }
+    }
+
+    // Decide: if gesture has high confidence and matches well, show it
+    // Otherwise show letter (fingerspelling mode)
+    let detected = null;
+
+    if(bestGesture && bestGesture.score > 0.82) {
+      // Strong medical gesture
+      detected = {
+        sign: bestGesture.name,
+        meaning: `ASL Sign: "${bestGesture.name}" (${Math.round(bestGesture.score*100)}% match)`,
+        isGesture: true,
+        confidence: bestGesture.score
+      };
+      // Reset spelling buffer on gesture
+      spellingBuffer = '';
+    } else if(bestLetter) {
+      // Fingerspelling mode
+      const letter = bestLetter.name;
+      const conf = Math.round(bestLetter.score * 100);
+
+      // Same letter hold = confirm, new letter = append
+      if(letter === lastLetter && (now - lastLetterTime) < 1200) {
+        // Holding same letter — don't re-add
+        detectSimpleGestures._lastDetect = now;
+        return;
+      }
+
+      lastLetter = letter;
+      lastLetterTime = now;
+      spellingBuffer += letter;
+
+      // Auto-timeout: if no new letter in 2s, treat buffer as complete word
+      // Then try to match against perioperative commands (spelling-to-command bridge)
+      clearTimeout(spellingTimeout);
+      spellingTimeout = setTimeout(() => {
+        if(spellingBuffer.length > 1) {
+          const cmdMatch = matchSpellingToCommand(spellingBuffer);
+          if(cmdMatch) {
+            showDetection({
+              sign: `Spelled "${spellingBuffer}" → "${cmdMatch.cmd}"`,
+              meaning: `Fingerspelled "${spellingBuffer}" matched command: "${cmdMatch.cmd}" (${cmdMatch.score}% match)`,
+              isSpelling: true,
+              commandMatch: cmdMatch
+            });
+            // Auto-trigger the matched command's ASL sign
+            setTimeout(() => showASLSign(cmdMatch.cmd), 800);
+          } else {
+            showDetection({
+              sign: `Spelled: "${spellingBuffer}"`,
+              meaning: `Fingerspelled word: "${spellingBuffer}"`,
+              isSpelling: true
+            });
+          }
+        }
+        spellingBuffer = '';
+        lastLetter = '';
+      }, 2000);
+
+      detected = {
+        sign: `ASL Letter: ${letter} (${conf}%)`,
+        meaning: `ASL Fingerspell: "${letter}" — Buffer: "${spellingBuffer}"`,
+        isLetter: true,
+        confidence: bestLetter.score
+      };
+    } else if(bestGesture) {
+      // Lower confidence gesture
+      detected = {
+        sign: bestGesture.name,
+        meaning: `ASL Sign: "${bestGesture.name}" (${Math.round(bestGesture.score*100)}% match)`,
+        isGesture: true,
+        confidence: bestGesture.score
+      };
+    }
+
+    if(detected) {
+      detectSimpleGestures._lastDetect = now;
+      showDetection(detected);
+      return;
+    }
+  }
+}
+
+function getConfidenceBadge(confidence) {
+  if(!confidence) return '';
+  const pct = Math.round(confidence * 100);
+  let color, label, cls;
+  if(pct >= 85) { color = '#059669'; label = 'High'; cls = 'conf-high'; }
+  else if(pct >= 75) { color = '#D97706'; label = 'Med'; cls = 'conf-med'; }
+  else { color = '#DC2626'; label = 'Low'; cls = 'conf-low'; }
+  return `<span class="conf-badge ${cls}">${label} ${pct}%</span>`;
+}
+
+function showDetection(item) {
+  const signEl = document.getElementById('detectedSign');
+  const bufferEl = document.getElementById('spellingBufferDisplay');
+  const badge = getConfidenceBadge(item.confidence);
+
+  // Different display for letters vs gestures vs spelled words
+  if(item.isLetter) {
+    signEl.innerHTML = '🔤 ' + item.sign + ' ' + badge;
+    signEl.className = 'detected-sign show letter-detect';
+    // Update spelling buffer display
+    if(bufferEl) {
+      bufferEl.textContent = spellingBuffer ? `Spelling: ${spellingBuffer}▌` : '';
+      bufferEl.classList.toggle('visible', spellingBuffer.length > 0);
+    }
+  } else if(item.isSpelling) {
+    signEl.innerHTML = '📝 ' + item.sign + (item.commandMatch ? ' <span class="conf-badge conf-high">Command Match</span>' : '');
+    signEl.className = 'detected-sign show spelling-detect';
+    if(bufferEl) { bufferEl.textContent = ''; bufferEl.classList.remove('visible'); }
+  } else {
+    signEl.innerHTML = '✋ ' + item.sign + ' ' + badge;
+    signEl.className = 'detected-sign show gesture-detect';
+    if(bufferEl) { bufferEl.textContent = ''; bufferEl.classList.remove('visible'); }
+  }
+
+  handDetections.unshift(item);
+  if(handDetections.length > 20) handDetections.pop();
+  addLogEntry('sign', item.meaning);
+
+  const patientSignEl = document.getElementById('patientDetectedSign');
+  if(patientSignEl) {
+    patientSignEl.textContent = item.isLetter ? ('🔤 ' + item.sign) : ('✋ ' + item.sign);
+    patientSignEl.classList.add('show');
+    setTimeout(() => patientSignEl.classList.remove('show'), 2500);
+  }
+
+  const icon = item.isLetter ? '🔤' : item.isSpelling ? '📝' : '✋';
+  addPatientTranscript(item.meaning, icon);
+
+  setTimeout(() => { signEl.classList.remove('show'); signEl.className = 'detected-sign'; }, 2500);
+}
+
+// ===== PATIENT CAMERA (single implementation) =====
+function togglePatientCamera() {
+  if(cameraActive) {
+    stopPatientCamera();
+    return;
+  }
+  const video = document.getElementById('patientCamFeed');
+  const status = document.getElementById('handStatus');
+  const overlay = document.getElementById('patientCamOverlay');
+  status.innerHTML = '<div class="dot"></div>Starting camera...';
+
+  navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: 640, height: 480 } })
+    .then(stream => {
+      video.srcObject = stream;
+      overlay.classList.add('hidden');
+      cameraActive = true;
+      status.innerHTML = '<div class="dot"></div>Show your hands to communicate';
+      addLogEntry('system', 'Camera started — MediaPipe hand tracking active');
+
+      if(!mpHands) initMediaPipeHands();
+      if(mpHands) {
+        patientMpCamera = new Camera(video, {
+          onFrame: async () => {
+            if(mpHands && cameraActive) await mpHands.send({ image: video });
+          },
+          width: 640, height: 480,
+        });
+        patientMpCamera.start();
+      }
+    })
+    .catch(() => {
+      status.innerHTML = '<div class="dot"></div>Camera denied — check permissions';
+    });
+}
+
+function stopPatientCamera() {
+  if(patientMpCamera) { patientMpCamera.stop(); patientMpCamera = null; }
+  const video = document.getElementById('patientCamFeed');
+  if(video && video.srcObject) {
+    video.srcObject.getTracks().forEach(t => t.stop());
+    video.srcObject = null;
+  }
+  cameraActive = false;
+  document.getElementById('patientCamOverlay').classList.remove('hidden');
+  document.getElementById('handStatus').className = 'hand-status';
+  document.getElementById('handStatus').innerHTML = '<div class="dot"></div>Camera off';
+  document.getElementById('landmarkCount').classList.remove('visible');
+}
+
+// ===== SESSION LOG =====
+function addLogEntry(type, text) {
+  const now = new Date();
+  const time = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  sessionLogEntries.unshift({ type, text, time });
+  renderLog();
+}
+
+function renderLog() {
+  const container = document.getElementById('sessionLog');
+  if(sessionLogEntries.length === 0) {
+    container.innerHTML = '<div class="log-empty">Session events will appear here</div>';
+    return;
+  }
+  container.innerHTML = sessionLogEntries.slice(0, 50).map(entry => {
+    const iconMap = { voice: '⏺', sign: '✋', cmd: '→', system: '⚙' };
+    const classMap = { voice: 'voice', sign: 'sign', cmd: 'cmd', system: 'cmd' };
+    return `
+      <div class="log-entry">
+        <div class="log-icon ${classMap[entry.type]}">${iconMap[entry.type]}</div>
+        <div>
+          <div class="log-text">${entry.text}</div>
+          <div class="log-time">${entry.time}</div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function clearLog() { sessionLogEntries = []; renderLog(); }
+
+function downloadTranscript() {
+  if(sessionLogEntries.length === 0) {
+    alert('No session data to download yet.');
+    return;
+  }
+  const now = new Date();
+  const dateStr = now.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+  const timeStr = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+
+  let txt = '╔══════════════════════════════════════════╗\n';
+  txt += '║     SIGNBRIDGE — Session Transcript       ║\n';
+  txt += '╚══════════════════════════════════════════╝\n\n';
+  txt += `Date: ${dateStr}\n`;
+  txt += `Time: ${timeStr}\n`;
+  txt += `Entries: ${sessionLogEntries.length}\n`;
+  txt += `Tool: SignBridge v1.0 — Perioperative ASL Communication\n`;
+  txt += `Team: Adrian Williams, Jasmine Miller M.D., Myca-Lee McComie\n`;
+  txt += '─'.repeat(50) + '\n\n';
+
+  const typeLabels = { voice: 'VOICE', sign: 'ASL SIGN', cmd: 'COMMAND', system: 'SYSTEM' };
+
+  // Reverse to chronological order
+  [...sessionLogEntries].reverse().forEach((entry, i) => {
+    const label = typeLabels[entry.type] || entry.type.toUpperCase();
+    txt += `[${entry.time}] ${label}: ${entry.text}\n`;
+  });
+
+  txt += '\n' + '─'.repeat(50) + '\n';
+  txt += 'End of transcript\n';
+  txt += 'Generated by SignBridge — MADE Lab, Albert Einstein College of Medicine\n';
+
+  const blob = new Blob([txt], { type: 'text/plain' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `SignBridge_Transcript_${now.toISOString().slice(0,10)}.txt`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// ===== MODE SWITCHING =====
+let currentMode = 'send';
+
+function switchMode(mode) {
+  currentMode = mode;
+  const app = document.getElementById('app');
+  const sendBtn = document.getElementById('modeSend');
+  const receiveBtn = document.getElementById('modeReceive');
+  const patientScreen = document.getElementById('patientModeScreen');
+
+  if(mode === 'receive') {
+    app.classList.add('patient-active');
+    patientScreen.classList.add('active');
+    sendBtn.classList.remove('active');
+    receiveBtn.classList.add('active');
+    addLogEntry('system', 'Switched to Receive ASL');
+  } else {
+    app.classList.remove('patient-active');
+    patientScreen.classList.remove('active');
+    sendBtn.classList.add('active');
+    receiveBtn.classList.remove('active');
+    if(cameraActive) stopPatientCamera();
+    addLogEntry('system', 'Switched to Send ASL');
+  }
+}
+
+function patientQuickReply(type) {
+  const map = {
+    'yes': 'Patient responded: Yes / I understand',
+    'no': 'Patient responded: No / I don\'t understand',
+    'idk': 'Patient responded: Unsure / I don\'t know',
+    'help': 'Patient requesting HELP',
+    'repeat': 'Patient requested: Repeat last sign',
+  };
+  addLogEntry('sign', map[type]);
+
+  const btns = document.querySelectorAll('.patient-resp-big');
+  btns.forEach(b => b.style.opacity = '0.4');
+  const cls = type === 'repeat' ? 'repeat-req' : type;
+  const activeBtn = document.querySelector(`.patient-resp-big.${cls}`);
+  if(activeBtn) {
+    activeBtn.style.opacity = '1';
+    activeBtn.style.transform = 'scale(1.02)';
+  }
+  setTimeout(() => {
+    btns.forEach(b => { b.style.opacity = '1'; b.style.transform = ''; });
+  }, 400);
+}
+
+// ===== PATIENT TRANSCRIPT =====
+let patientTranscriptEntries = [];
+
+function addPatientTranscript(text, icon) {
+  const now = new Date();
+  const time = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit' });
+  patientTranscriptEntries.unshift({ text, icon: icon || '✋', time });
+  if(patientTranscriptEntries.length > 20) patientTranscriptEntries.pop();
+  renderPatientTranscript();
+}
+
+function renderPatientTranscript() {
+  const feed = document.getElementById('patientTranscriptFeed');
+  if(!feed) return;
+  if(patientTranscriptEntries.length === 0) {
+    feed.innerHTML = '<div class="transcript-empty">Start the camera — detected signs will appear here in real time</div>';
+    return;
+  }
+  feed.innerHTML = patientTranscriptEntries.map(e => `
+    <div class="transcript-entry">
+      <div class="t-icon">${e.icon}</div>
+      <div>
+        <div class="t-text">${e.text}</div>
+        <div class="t-time">${e.time}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+// ===== BODY MAP =====
+let selectedBodyZone = null;
+let selectedSeverity = null;
+
+const zoneNames = {
+  'head': 'Head', 'neck': 'Neck', 'chest': 'Chest', 'abdomen': 'Abdomen',
+  'left-arm': 'Left Arm', 'right-arm': 'Right Arm',
+  'left-hand': 'Left Hand', 'right-hand': 'Right Hand',
+  'lower-back': 'Lower Back / Hip',
+  'left-leg': 'Left Leg', 'right-leg': 'Right Leg',
+  'left-foot': 'Left Foot', 'right-foot': 'Right Foot',
+};
+
+function selectBodyZone(zone) {
+  document.querySelectorAll('.body-zone').forEach(z => z.classList.remove('selected'));
+  const el = document.querySelector(`.body-zone[data-zone="${zone}"]`);
+  if(el) el.classList.add('selected');
+  selectedBodyZone = zone;
+  selectedSeverity = null;
+  const info = document.getElementById('bodySelectionInfo');
+  info.style.display = 'block';
+  document.getElementById('bodySelArea').textContent = zoneNames[zone] || zone;
+  document.querySelectorAll('.severity-dot').forEach(d => {
+    d.classList.remove('selected');
+    d.style.background = 'var(--bg-elevated)';
+    d.style.color = 'var(--text-secondary)';
+  });
+  addLogEntry('sign', `Patient pointed to pain area: ${zoneNames[zone]}`);
+}
+
+function selectSeverity(val) {
+  selectedSeverity = val;
+  const dots = document.querySelectorAll('.severity-dot');
+  const colors = ['#059669','#059669','#059669','#D97706','#D97706','#D97706','#D97706','#DC2626','#DC2626','#DC2626','#DC2626'];
+  dots.forEach((d, i) => {
+    if(i <= val) {
+      d.classList.add('selected');
+      d.style.background = colors[i];
+      d.style.color = 'white';
+      d.style.borderColor = colors[i];
+    } else {
+      d.classList.remove('selected');
+      d.style.background = 'var(--bg-elevated)';
+      d.style.color = 'var(--text-secondary)';
+      d.style.borderColor = '';
+    }
+  });
+  const severity = val <= 3 ? 'mild' : val <= 6 ? 'moderate' : 'severe';
+  const area = selectedBodyZone ? zoneNames[selectedBodyZone] : 'Unknown';
+  addLogEntry('sign', `Patient reported: ${area} pain — ${val}/10 (${severity})`);
+}
+
+// ===== DARK MODE =====
+function toggleDarkMode() {
+  const html = document.documentElement;
+  const btn = document.getElementById('darkToggle');
+  const themeColor = document.getElementById('themeColor');
+  const isDark = html.getAttribute('data-theme') === 'dark';
+  if(isDark) {
+    html.removeAttribute('data-theme');
+    btn.textContent = '☀️';
+    themeColor.content = '#FFFFFF';
+    localStorage.setItem('signbridge-theme', 'light');
+  } else {
+    html.setAttribute('data-theme', 'dark');
+    btn.textContent = '🌙';
+    themeColor.content = '#0F172A';
+    localStorage.setItem('signbridge-theme', 'dark');
+  }
+}
+
+// Restore theme preference
+(function() {
+  const saved = localStorage.getItem('signbridge-theme');
+  if(saved === 'dark') {
+    document.documentElement.setAttribute('data-theme', 'dark');
+    setTimeout(() => {
+      const btn = document.getElementById('darkToggle');
+      if(btn) btn.textContent = '🌙';
+      const tc = document.getElementById('themeColor');
+      if(tc) tc.content = '#0F172A';
+    }, 0);
+  }
+})();
+
+// ===== PATIENT RESPONSE (inside ASL overlay) =====
+function patientResponse(type) {
+  const responseMap = {
+    'understand': { text: 'Patient confirmed: Understands', icon: '✓' },
+    'repeat': { text: 'Patient requested: Repeat signing', icon: '↻' },
+    'question': { text: 'Patient indicated: Has a question', icon: '?' },
+  };
+  const resp = responseMap[type];
+  addLogEntry('sign', resp.text);
+
+  if(type === 'repeat') {
+    replayASL();
+    return;
+  }
+
+  const panel = document.getElementById('patientResponsePanel');
+  const btns = panel.querySelectorAll('.patient-resp-btn');
+  btns.forEach(b => b.style.opacity = '0.4');
+  const activeBtn = panel.querySelector(`.${type}`);
+  if(activeBtn) {
+    activeBtn.style.opacity = '1';
+    activeBtn.style.transform = 'scale(1.03)';
+  }
+
+  setTimeout(() => {
+    closeASLOverlay();
+    btns.forEach(b => { b.style.opacity = '1'; b.style.transform = ''; });
+  }, 600);
+}
+
+// ===== TEXT-TO-SPEECH =====
+let ttsReady = false;
+function initTTS() {
+  if('speechSynthesis' in window) {
+    ttsReady = true;
+    updateConnStatus('connTTS', true);
+    // Preload voices
+    speechSynthesis.getVoices();
+    speechSynthesis.onvoiceschanged = () => speechSynthesis.getVoices();
+  }
+}
+
+function speakPhrase(lang) {
+  if(!ttsReady || !currentSigningPhrase) return;
+  speechSynthesis.cancel();
+
+  let text = currentSigningPhrase;
+  let voiceLang = 'en-US';
+  let btnId = 'ttsEnBtn';
+
+  if(lang === 'es') {
+    text = spanishTranslations[currentSigningPhrase] || currentSigningPhrase;
+    voiceLang = 'es-ES';
+    btnId = 'ttsEsBtn';
+  }
+
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.lang = voiceLang;
+  utterance.rate = 0.85;
+  utterance.pitch = 1.0;
+
+  // Try to find a matching voice
+  const voices = speechSynthesis.getVoices();
+  const match = voices.find(v => v.lang.startsWith(lang === 'es' ? 'es' : 'en'));
+  if(match) utterance.voice = match;
+
+  const btn = document.getElementById(btnId);
+  btn.classList.add('speaking');
+  utterance.onend = () => btn.classList.remove('speaking');
+  utterance.onerror = () => btn.classList.remove('speaking');
+
+  speechSynthesis.speak(utterance);
+  addLogEntry('system', `TTS: "${text}" (${lang === 'es' ? 'Spanish' : 'English'})`);
+}
+
+// ===== QUICK PAIN SCALE (Receive mode) =====
+function updateQuickPain(val) {
+  const display = document.getElementById('quickPainValue');
+  display.textContent = val;
+  const v = parseInt(val);
+  if(v <= 3) display.style.color = '#059669';
+  else if(v <= 6) display.style.color = '#D97706';
+  else display.style.color = '#DC2626';
+}
+
+function submitQuickPain() {
+  const val = document.getElementById('quickPainSlider').value;
+  const severity = parseInt(val) <= 3 ? 'mild' : parseInt(val) <= 6 ? 'moderate' : 'severe';
+  addLogEntry('sign', `Patient reported pain level: ${val}/10 (${severity})`);
+  addPatientTranscript(`Pain: ${val}/10 (${severity})`, '⚡');
+  // Brief visual feedback
+  const btn = document.querySelector('.quick-pain-send');
+  btn.textContent = 'Reported ✓';
+  btn.style.background = '#059669';
+  setTimeout(() => {
+    btn.textContent = 'Report Pain Level';
+    btn.style.background = '';
+  }, 1200);
+}
+
+// ===== CLINICAL NOTE GENERATOR =====
+function generateClinicalNote() {
+  if(sessionLogEntries.length === 0) {
+    alert('No session data to generate a note from.');
+    return;
+  }
+
+  const now = new Date();
+  const dateStr = now.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+  const timeStr = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+
+  // Analyze session entries
+  const entries = [...sessionLogEntries].reverse();
+  const commands = entries.filter(e => e.type === 'cmd');
+  const voiceEntries = entries.filter(e => e.type === 'voice');
+  const signEntries = entries.filter(e => e.type === 'sign');
+  const painReports = entries.filter(e => e.text.includes('pain') || e.text.includes('Pain'));
+  const patientResponses = signEntries.filter(e => e.text.startsWith('Patient'));
+
+  // Determine categories used
+  const catsUsed = new Set();
+  commands.forEach(c => {
+    const phrase = c.text.replace('Signing: ', '');
+    Object.keys(commandData).forEach(cat => {
+      if(cat !== 'All' && commandData[cat].includes(phrase)) catsUsed.add(cat);
+    });
+  });
+
+  // Build SOAP note
+  let note = '';
+  note += '╔══════════════════════════════════════════════╗\n';
+  note += '║   SIGNBRIDGE — Clinical Communication Note   ║\n';
+  note += '╚══════════════════════════════════════════════╝\n\n';
+  note += `Date: ${dateStr}  |  Time: ${timeStr}\n`;
+  note += `Provider Tool: SignBridge v5.1 (ASL + Voice)\n`;
+  note += `Session Duration: ${entries.length} logged interactions\n`;
+  note += '─'.repeat(50) + '\n\n';
+
+  // Subjective
+  note += 'SUBJECTIVE\n';
+  note += '─'.repeat(30) + '\n';
+  if(painReports.length > 0) {
+    note += 'Pain Reports:\n';
+    painReports.forEach(p => note += `  • ${p.text} (${p.time})\n`);
+  }
+  if(patientResponses.length > 0) {
+    note += 'Patient Responses:\n';
+    patientResponses.forEach(p => note += `  • ${p.text} (${p.time})\n`);
+  }
+  if(painReports.length === 0 && patientResponses.length === 0) {
+    note += '  No patient-reported data in this session.\n';
+  }
+  note += '\n';
+
+  // Objective
+  note += 'OBJECTIVE\n';
+  note += '─'.repeat(30) + '\n';
+  note += `Communication Method: ASL signs + voice commands via SignBridge\n`;
+  note += `Commands Administered: ${commands.length}\n`;
+  if(catsUsed.size > 0) note += `Clinical Categories: ${[...catsUsed].join(', ')}\n`;
+  note += `Voice Inputs: ${voiceEntries.length}\n`;
+  note += `ASL Detections: ${signEntries.length}\n`;
+  note += '\n';
+
+  // Assessment
+  note += 'ASSESSMENT\n';
+  note += '─'.repeat(30) + '\n';
+  const understood = patientResponses.filter(p => p.text.includes('Understand') || p.text.includes('Yes'));
+  const confused = patientResponses.filter(p => p.text.includes('question') || p.text.includes('Unsure') || p.text.includes('No'));
+  if(understood.length > 0) note += `  Patient demonstrated understanding ${understood.length} time(s)\n`;
+  if(confused.length > 0) note += `  Patient indicated confusion/questions ${confused.length} time(s)\n`;
+  note += `  Communication facilitated via bidirectional ASL tool\n`;
+  note += '\n';
+
+  // Plan
+  note += 'PLAN\n';
+  note += '─'.repeat(30) + '\n';
+  note += '  Continue use of ASL-assisted communication as needed\n';
+  const hasDischarge = commands.some(c => c.text.includes('home') || c.text.includes('discharge') || c.text.includes('follow up'));
+  if(hasDischarge) note += '  Discharge instructions communicated via SignBridge\n';
+  note += '\n';
+
+  // Full log
+  note += '─'.repeat(50) + '\n';
+  note += 'FULL SESSION LOG\n';
+  note += '─'.repeat(50) + '\n';
+  const typeLabels = { voice: 'VOICE', sign: 'ASL', cmd: 'CMD', system: 'SYS' };
+  entries.forEach(entry => {
+    const label = typeLabels[entry.type] || entry.type.toUpperCase();
+    note += `[${entry.time}] ${label}: ${entry.text}\n`;
+  });
+
+  note += '\n' + '─'.repeat(50) + '\n';
+  note += 'Generated by SignBridge — MADE Lab, Albert Einstein College of Medicine\n';
+  note += `Team: Adrian Williams, Jasmine Miller M.D., Myca-Lee McComie\n`;
+
+  // Download
+  const blob = new Blob([note], { type: 'text/plain' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `SignBridge_ClinicalNote_${now.toISOString().slice(0,10)}.txt`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+
+  addLogEntry('system', 'Clinical note generated');
+}
+
+// ===== CONNECTION STATUS =====
+function updateConnStatus(chipId, active, warn) {
+  const chip = document.getElementById(chipId);
+  if(!chip) return;
+  chip.classList.remove('active', 'warn');
+  if(active) chip.classList.add('active');
+  else if(warn) chip.classList.add('warn');
+}
+
+function refreshConnStatus() {
+  // Camera
+  updateConnStatus('connCam', cameraActive);
+  // Mic
+  updateConnStatus('connMic', isListening);
+  // ASL Engine
+  updateConnStatus('connEngine', !!mpHands);
+  // TTS
+  updateConnStatus('connTTS', ttsReady);
+}
+
+// Poll connection status every 2 seconds
+setInterval(refreshConnStatus, 2000);
+
+// ===== START =====
+init();
+initTTS();
+try { initMediaPipeHands(); } catch(e) { console.log('MediaPipe will init on camera start'); }
+setTimeout(refreshConnStatus, 500);
+</script>
+
+</body>
+</html>
