@@ -1,35 +1,43 @@
 <!doctype html><html><head><meta charset="utf-8"><style>
-body{margin:0;background:#0b1220;font-family:system-ui;color:#e5e7eb}
-.grid{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;padding:10px}
-.cell{background:#111a2e;border:1px solid #1f2b45;border-radius:10px;text-align:center;padding:6px}
-.cell b{font-size:22px;color:#7dd3fc}
-canvas{display:block;margin:2px auto;background:#0e1830;border-radius:8px}
+body{margin:0;background:#f1f5f9;font-family:system-ui;color:#0f172a}
+.grid{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;padding:12px}
+.cell{background:#fff;border:1px solid #e2e8f0;border-radius:12px;text-align:center;padding:6px}
+.cell b{font-size:22px;color:#2563EB}
+canvas{display:block;margin:2px auto;background:#fff;border:1px solid #eef2f7;border-radius:10px}
 </style></head><body>
 <div class="grid" id="grid"></div>
 <script>
-const CONN=[[0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],[5,9],[9,10],[10,11],[11,12],[9,13],[13,14],[14,15],[15,16],[13,17],[17,18],[18,19],[19,20],[0,17]];
-function draw(cv, vec){
-  const ctx=cv.getContext('2d'), W=cv.width, H=cv.height;
-  ctx.clearRect(0,0,W,H);
-  // points
-  const pts=[]; for(let i=0;i<21;i++) pts.push([vec[2*i], vec[2*i+1]]);
-  // fit: values are wrist-relative in ~[-1,1]; map to canvas with padding, y down
-  const pad=18, scale=Math.min(W,H)/2 - pad;
-  const cx=W/2, cy=H/2 + 10; // shift down a touch (wrist near bottom)
-  const X=p=>cx + p[0]*scale, Y=p=>cy + p[1]*scale;
-  ctx.strokeStyle='#38bdf8'; ctx.lineWidth=3; ctx.lineCap='round';
-  for(const [a,b] of CONN){ ctx.beginPath(); ctx.moveTo(X(pts[a]),Y(pts[a])); ctx.lineTo(X(pts[b]),Y(pts[b])); ctx.stroke(); }
-  for(let i=0;i<21;i++){ ctx.beginPath(); ctx.arc(X(pts[i]),Y(pts[i]), i===0?5:3, 0, 7); ctx.fillStyle=i===0?'#f59e0b':'#bae6fd'; ctx.fill(); }
+function convexHull(points){const p=points.slice().sort((a,b)=>a[0]-b[0]||a[1]-b[1]);if(p.length<3)return p;
+ const cross=(o,a,b)=>(a[0]-o[0])*(b[1]-o[1])-(a[1]-o[1])*(b[0]-o[0]);
+ const lo=[];for(const pt of p){while(lo.length>=2&&cross(lo[lo.length-2],lo[lo.length-1],pt)<=0)lo.pop();lo.push(pt);}
+ const up=[];for(let i=p.length-1;i>=0;i--){const pt=p[i];while(up.length>=2&&cross(up[up.length-2],up[up.length-1],pt)<=0)up.pop();up.push(pt);}
+ lo.pop();up.pop();return lo.concat(up);}
+function draw(cv,vec){
+  const ctx=cv.getContext('2d'),W=cv.width,H=cv.height; ctx.clearRect(0,0,W,H);
+  const pad=30,scale=Math.min(W,H)/2-pad,cx=W/2,cy=H/2+14;
+  const P=i=>[cx+vec[2*i]*scale,cy+vec[2*i+1]*scale];
+  const pts=[];for(let i=0;i<21;i++)pts.push(P(i));
+  const SKIN='#E8B58C',LINE='#6B4427';
+  const fingers=[[1,2,3,4],[5,6,7,8],[9,10,11,12],[13,14,15,16],[17,18,19,20]];
+  const fw=scale*0.20,thumbW=scale*0.24,outline=scale*0.07;
+  ctx.lineCap='round';ctx.lineJoin='round';
+  const chainStroke=(chain,w,color)=>{ctx.strokeStyle=color;ctx.lineWidth=w;ctx.beginPath();ctx.moveTo(pts[chain[0]][0],pts[chain[0]][1]);for(let k=1;k<chain.length;k++)ctx.lineTo(pts[chain[k]][0],pts[chain[k]][1]);ctx.stroke();};
+  const hull=convexHull([0,1,2,5,9,13,17].map(i=>pts[i]));
+  ctx.strokeStyle=LINE;ctx.fillStyle=LINE;
+  ctx.beginPath();hull.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));ctx.closePath();ctx.lineWidth=outline*2;ctx.stroke();ctx.fill();
+  fingers.forEach((f,idx)=>chainStroke(idx===0?[0].concat(f):f,(idx===0?thumbW:fw)+outline,LINE));
+  ctx.fillStyle=SKIN;
+  ctx.beginPath();hull.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));ctx.closePath();ctx.fill();
+  fingers.forEach((f,idx)=>chainStroke(idx===0?[0].concat(f):f,idx===0?thumbW:fw,SKIN));
+  ctx.fillStyle='rgba(255,255,255,0.18)';[4,8,12,16,20].forEach(i=>{ctx.beginPath();ctx.arc(pts[i][0],pts[i][1],fw*0.28,0,7);ctx.fill();});
 }
 (async()=>{
   const t=await (await fetch('../model/letter_templates.json')).json();
   const g=document.getElementById('grid');
   for(const L of 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'){
-    const d=document.createElement('div'); d.className='cell';
-    d.innerHTML='<b>'+L+'</b>';
-    const cv=document.createElement('canvas'); cv.width=150; cv.height=150;
-    d.appendChild(cv); g.appendChild(d);
-    if(t[L]) draw(cv,t[L]);
+    const d=document.createElement('div');d.className='cell';d.innerHTML='<b>'+L+'</b>';
+    const cv=document.createElement('canvas');cv.width=150;cv.height=150;d.appendChild(cv);g.appendChild(d);
+    if(t[L])draw(cv,t[L]);
   }
   window.__done=true;
 })();

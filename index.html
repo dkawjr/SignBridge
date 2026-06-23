@@ -3007,19 +3007,57 @@ async function loadLetterTemplates() {
   return letterTemplates;
 }
 
+// Convex hull (monotone chain) for the palm polygon.
+function convexHull(points) {
+  const p = points.slice().sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  if(p.length < 3) return p;
+  const cross = (o, a, b) => (a[0]-o[0])*(b[1]-o[1]) - (a[1]-o[1])*(b[0]-o[0]);
+  const lo = []; for(const pt of p) { while(lo.length >= 2 && cross(lo[lo.length-2], lo[lo.length-1], pt) <= 0) lo.pop(); lo.push(pt); }
+  const up = []; for(let i = p.length-1; i >= 0; i--) { const pt = p[i]; while(up.length >= 2 && cross(up[up.length-2], up[up.length-1], pt) <= 0) up.pop(); up.push(pt); }
+  lo.pop(); up.pop(); return lo.concat(up);
+}
+
+// Draw a SOLID, opaque, single-tone hand (racially-neutral stylized illustration) from the
+// 21 landmark template — palm polygon + thick rounded finger "capsules" with a crisp outline.
 function drawHandshape(vec) {
   const cv = document.getElementById('aslHandCanvas');
   if(!cv || !vec) return;
   const ctx = cv.getContext('2d'); const W = cv.width, H = cv.height;
   ctx.clearRect(0, 0, W, H);
-  const pts = []; for(let i = 0; i < 21; i++) pts.push([vec[2*i], vec[2*i+1]]);
-  const pad = 48, scale = Math.min(W, H) / 2 - pad, cx = W / 2, cy = H / 2 + 24;
-  const X = p => cx + p[0] * scale, Y = p => cy + p[1] * scale;   // y-down: negative = up = fingers up
-  ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 6; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-  ctx.shadowColor = 'rgba(56,189,248,0.45)'; ctx.shadowBlur = 12;
-  for(const [a, b] of HAND_CONNECTIONS_FS) { ctx.beginPath(); ctx.moveTo(X(pts[a]), Y(pts[a])); ctx.lineTo(X(pts[b]), Y(pts[b])); ctx.stroke(); }
-  ctx.shadowBlur = 0;
-  for(let i = 0; i < 21; i++) { ctx.beginPath(); ctx.arc(X(pts[i]), Y(pts[i]), i === 0 ? 7 : 5, 0, 7); ctx.fillStyle = i === 0 ? '#f59e0b' : '#e0f2fe'; ctx.fill(); }
+  const pad = 56, scale = Math.min(W, H) / 2 - pad, cx = W / 2, cy = H / 2 + 22;
+  const P = i => [cx + vec[2*i] * scale, cy + vec[2*i+1] * scale];
+  const pts = []; for(let i = 0; i < 21; i++) pts.push(P(i));
+
+  const SKIN = '#E8B58C', LINE = '#6B4427';     // neutral mid tone + warm-brown outline
+  const fingers = [[1,2,3,4],[5,6,7,8],[9,10,11,12],[13,14,15,16],[17,18,19,20]];
+  const fw = scale * 0.20, thumbW = scale * 0.24, outline = scale * 0.07;
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+
+  // helper to stroke a finger chain
+  const strokeChain = (chain, w, color) => {
+    ctx.strokeStyle = color; ctx.lineWidth = w; ctx.beginPath();
+    ctx.moveTo(pts[chain[0]][0], pts[chain[0]][1]);
+    for(let k = 1; k < chain.length; k++) ctx.lineTo(pts[chain[k]][0], pts[chain[k]][1]);
+    ctx.stroke();
+  };
+
+  // palm hull (include wrist + finger bases + thumb base)
+  const hull = convexHull([0,1,2,5,9,13,17].map(i => pts[i]));
+
+  // ---- outline pass (dark, slightly larger) ----
+  ctx.strokeStyle = LINE; ctx.fillStyle = LINE;
+  ctx.beginPath(); hull.forEach((p, i) => i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])); ctx.closePath();
+  ctx.lineWidth = outline * 2; ctx.stroke(); ctx.fill();
+  fingers.forEach((f, idx) => strokeChain(idx === 0 ? [0].concat(f) : f, (idx === 0 ? thumbW : fw) + outline, LINE));
+
+  // ---- skin pass (fill on top) ----
+  ctx.fillStyle = SKIN;
+  ctx.beginPath(); hull.forEach((p, i) => i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])); ctx.closePath(); ctx.fill();
+  fingers.forEach((f, idx) => strokeChain(idx === 0 ? [0].concat(f) : f, idx === 0 ? thumbW : fw, SKIN));
+
+  // subtle fingertip + knuckle definition (light shading dots at tips)
+  ctx.fillStyle = 'rgba(255,255,255,0.18)';
+  [4,8,12,16,20].forEach(i => { ctx.beginPath(); ctx.arc(pts[i][0], pts[i][1], fw * 0.28, 0, 7); ctx.fill(); });
 }
 
 function renderFsWord(stripLetters, idx) {
