@@ -1603,6 +1603,387 @@ body {
   background: var(--border);
   margin: var(--space-md) 0;
 }
+
+/* ============================================================
+   PATIENT-FACING DESIGN LAYER  (additive — extends existing tokens)
+   Scope: applied under .pt-scope so Send-mode is unaffected.
+   ============================================================ */
+:root {
+  /* Care accent (calming teal) — pairs with existing --primary blue */
+  --care: #0E9384;
+  --care-hover: #0B7A6E;
+  --care-light: #E6F7F4;
+  --care-muted: #7DD3C8;
+
+  /* Patient surface (a hair warmer/softer than --bg) */
+  --pt-bg: #F6F8FB;
+  --pt-surface: #FFFFFF;
+  --pt-surface-2: #EEF3F8;
+
+  /* Patient type scale (LARGE — bed/gloved-hand legible) */
+  --pt-text-hero: 30px;
+  --pt-text-xl:   22px;
+  --pt-text-lg:   18px;
+  --pt-text-md:   15px;
+
+  /* Patient spacing / shape / motion */
+  --pt-gap: 14px;
+  --pt-radius: 20px;
+  --pt-radius-sm: 14px;
+  --pt-touch: 64px;
+  --pt-shadow: 0 6px 20px rgba(15,23,42,0.06), 0 1px 3px rgba(15,23,42,0.04);
+  --pt-shadow-press: 0 2px 8px rgba(15,23,42,0.08);
+  --pt-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --pt-spring: cubic-bezier(0.34, 1.4, 0.5, 1);
+}
+
+[data-theme="dark"] {
+  --care: #2DD4BF;
+  --care-hover: #14B8A6;
+  --care-light: #0C3A35;
+  --care-muted: #115E56;
+  --pt-bg: #0B1220;
+  --pt-surface: #18222F;
+  --pt-surface-2: #111A26;
+  --pt-shadow: 0 6px 22px rgba(0,0,0,0.45), 0 1px 3px rgba(0,0,0,0.3);
+  --pt-shadow-press: 0 2px 8px rgba(0,0,0,0.5);
+}
+
+/* Patient mode container gets the warm surface + generous rhythm.
+   NOTE: does not touch display — .patient-mode-container[.active] still controls visibility. */
+.patient-mode-container.pt-scope {
+  background: var(--pt-bg);
+  padding: var(--space-lg) var(--space-lg) calc(var(--space-3xl) + var(--safe-bottom));
+}
+.pt-scope * { -webkit-tap-highlight-color: transparent; }
+
+@media (prefers-reduced-motion: reduce) {
+  .pt-scope *, .pt-scope *::before, .pt-scope *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
+
+/* ---------- Patient section heading ---------- */
+.pt-heading {
+  font-size: var(--pt-text-lg);
+  font-weight: 700;
+  letter-spacing: -0.2px;
+  color: var(--text-primary);
+  margin: var(--space-xl) 0 var(--space-md);
+  display: flex; align-items: center; gap: var(--space-sm);
+}
+.pt-heading:first-child { margin-top: 0; }
+.pt-heading .pt-sub {
+  font-size: var(--pt-text-md);
+  font-weight: 500;
+  color: var(--text-tertiary);
+  margin-left: auto;
+}
+
+/* ---------- A. CAMERA / RECOGNITION PANEL ---------- */
+.pt-cam {
+  background: var(--pt-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--pt-radius);
+  overflow: hidden;
+  box-shadow: var(--pt-shadow);
+  margin-bottom: var(--pt-gap);
+}
+.pt-cam .patient-cam-viewport { aspect-ratio: 4 / 3; }
+.pt-cam .hand-status {
+  font-size: var(--pt-text-md);
+  font-weight: 600;
+  color: var(--text-secondary);
+  padding: var(--space-md) var(--space-lg);
+  gap: var(--space-sm);
+  border-top: 1px solid var(--border);
+}
+.pt-cam .hand-status .dot { width: 9px; height: 9px; }
+.pt-cam .hand-status.tracking .dot {
+  background: var(--success);
+  box-shadow: 0 0 0 0 rgba(5,150,105,0.5);
+  animation: pt-breathe 1.8s var(--pt-ease) infinite;
+}
+@keyframes pt-breathe {
+  0%   { box-shadow: 0 0 0 0 rgba(5,150,105,0.45); }
+  70%  { box-shadow: 0 0 0 8px rgba(5,150,105,0); }
+  100% { box-shadow: 0 0 0 0 rgba(5,150,105,0); }
+}
+.pt-cam .landmark-count { font-size: var(--pt-text-md); }
+.pt-cam .detected-sign {
+  font-size: var(--pt-text-lg);
+  font-weight: 700;
+  padding: var(--space-md) var(--space-lg);
+}
+.pt-cam .spelling-buffer {
+  font-size: var(--pt-text-hero);
+  letter-spacing: 6px;
+  padding: var(--space-md);
+}
+.pt-cam .patient-cam-overlay { gap: var(--space-md); background: var(--pt-surface-2); }
+.pt-cam .patient-cam-overlay .cam-icon {
+  width: 72px; height: 72px; font-size: 30px;
+  background: var(--care-light); color: var(--care);
+}
+.pt-cam .patient-cam-overlay .cam-text {
+  font-size: var(--pt-text-xl); font-weight: 600; color: var(--text-secondary);
+}
+
+/* ---------- B. CONFIRM CHIP ("did you mean?") ---------- */
+.confirm-chip {
+  background: var(--pt-surface);
+  border: 1px solid var(--care-muted);
+  border-radius: var(--pt-radius);
+  box-shadow: var(--pt-shadow);
+  padding: var(--space-lg);
+  margin-bottom: var(--pt-gap);
+  display: none;
+  animation: pt-rise 0.28s var(--pt-spring);
+}
+.confirm-chip.visible { display: block; }
+@keyframes pt-rise {
+  from { opacity: 0; transform: translateY(10px) scale(0.97); }
+  to   { opacity: 1; transform: none; }
+}
+.confirm-chip .cc-label {
+  font-size: var(--pt-text-md); font-weight: 600;
+  color: var(--text-tertiary); text-transform: uppercase;
+  letter-spacing: 0.05em; margin-bottom: var(--space-sm);
+}
+.confirm-chip.urgent { border-color: var(--danger); }
+.confirm-chip.urgent .cc-label { color: var(--danger); }
+.confirm-chip .cc-top {
+  display: flex; align-items: center; gap: var(--space-md);
+  margin-bottom: var(--space-md);
+}
+.confirm-chip .cc-guess {
+  flex: 1;
+  font-size: var(--pt-text-hero); font-weight: 800;
+  color: var(--text-primary); letter-spacing: -0.5px;
+  line-height: 1.1; min-width: 0;
+}
+.confirm-chip .cc-guess small {
+  display: block; font-size: var(--pt-text-md); font-weight: 600;
+  color: var(--care); letter-spacing: 0; margin-top: 2px;
+}
+.confirm-chip .cc-confirm {
+  flex-shrink: 0;
+  min-width: 96px; height: var(--pt-touch);
+  border-radius: var(--pt-radius-sm); border: none;
+  background: var(--care); color: #fff;
+  font-family: var(--font); font-size: var(--pt-text-xl); font-weight: 700;
+  cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;
+  box-shadow: var(--pt-shadow-press);
+  transition: transform 0.12s var(--pt-ease), background 0.15s ease;
+}
+.confirm-chip .cc-confirm:active { transform: scale(0.95); background: var(--care-hover); }
+.confirm-chip .cc-alts {
+  display: flex; gap: var(--space-sm); flex-wrap: wrap; align-items: center;
+}
+.alt-chip {
+  min-height: 52px; padding: 0 var(--space-lg);
+  display: inline-flex; align-items: center; gap: 6px;
+  border-radius: var(--radius-full);
+  border: 1.5px solid var(--border-strong);
+  background: var(--pt-surface);
+  font-family: var(--font); font-size: var(--pt-text-lg); font-weight: 600;
+  color: var(--text-primary); cursor: pointer;
+  transition: all 0.15s var(--pt-ease);
+}
+.alt-chip:active { background: var(--care-light); border-color: var(--care); transform: scale(0.96); }
+.alt-chip .ac-hint { font-size: var(--pt-text-md); color: var(--text-tertiary); font-weight: 500; }
+.confirm-chip .cc-clear {
+  margin-left: auto;
+  min-height: 52px; padding: 0 var(--space-lg);
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border); background: transparent;
+  font-family: var(--font); font-size: var(--pt-text-md); font-weight: 600;
+  color: var(--text-tertiary); cursor: pointer;
+}
+.confirm-chip .cc-clear:active { background: var(--bg-inset); }
+
+/* ---------- COMMON-NEED CARD GRID ---------- */
+.need-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--pt-gap);
+}
+.need-card {
+  position: relative;
+  display: flex; flex-direction: column; align-items: flex-start; justify-content: space-between;
+  min-height: 112px; padding: var(--space-lg);
+  background: var(--pt-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--pt-radius);
+  box-shadow: var(--pt-shadow);
+  cursor: pointer; text-align: left;
+  font-family: var(--font);
+  transition: transform 0.14s var(--pt-ease), box-shadow 0.14s var(--pt-ease), border-color 0.14s ease;
+  -webkit-user-select: none; user-select: none;
+}
+.need-card:active {
+  transform: scale(0.97);
+  box-shadow: var(--pt-shadow-press);
+  border-color: var(--care-muted);
+}
+.need-card .nc-emoji {
+  font-size: 30px; line-height: 1; margin-bottom: var(--space-sm);
+}
+.need-card .nc-label {
+  font-size: var(--pt-text-xl); font-weight: 700; color: var(--text-primary);
+  letter-spacing: -0.2px; line-height: 1.15;
+}
+.need-card.sent { animation: pt-sent 0.6s var(--pt-ease); }
+@keyframes pt-sent {
+  0%   { box-shadow: 0 0 0 0 var(--care); }
+  30%  { box-shadow: 0 0 0 4px var(--care-light); border-color: var(--care); }
+  100% { box-shadow: var(--pt-shadow); }
+}
+.need-card.urgent { border-color: #FECACA; }
+.need-card.urgent:active { border-color: var(--danger); }
+.need-card.emergency { border-color: var(--danger); background: var(--danger-light); }
+.need-card.emergency .nc-label { color: var(--danger); }
+.need-card.emergency:active { border-color: var(--danger); }
+
+/* ---------- YES / NO ---------- */
+.yesno-row { display: grid; grid-template-columns: 1fr 1fr; gap: var(--pt-gap); margin-bottom: var(--space-lg); }
+.yesno-btn {
+  min-height: var(--pt-touch);
+  display: flex; align-items: center; justify-content: center; gap: var(--space-sm);
+  border-radius: var(--pt-radius);
+  border: 2px solid var(--border);
+  background: var(--pt-surface);
+  font-family: var(--font); font-size: var(--pt-text-xl); font-weight: 800;
+  color: var(--text-primary); cursor: pointer;
+  box-shadow: var(--pt-shadow);
+  transition: transform 0.12s var(--pt-ease);
+}
+.yesno-btn .yn-ic { font-size: 26px; }
+.yesno-btn:active { transform: scale(0.96); }
+.yesno-btn.yes { border-color: var(--care-muted); color: var(--care); }
+.yesno-btn.yes:active { background: var(--care-light); }
+.yesno-btn.no  { border-color: #FECACA; color: var(--danger); }
+.yesno-btn.no:active { background: var(--danger-light); }
+
+/* ---------- C. PHRASE STRIP / SENTENCE BUILDER ---------- */
+.phrase-strip {
+  position: sticky; top: 0; z-index: 5;
+  background: var(--pt-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--pt-radius);
+  box-shadow: var(--pt-shadow);
+  padding: var(--space-md);
+  margin-bottom: var(--pt-gap);
+}
+.phrase-strip .ps-words {
+  display: flex; gap: var(--space-sm); align-items: center;
+  overflow-x: auto; scrollbar-width: none;
+  min-height: 56px; padding: 2px;
+}
+.phrase-strip .ps-words::-webkit-scrollbar { display: none; }
+.ps-empty {
+  font-size: var(--pt-text-md); color: var(--text-tertiary); font-weight: 500;
+  padding-left: var(--space-sm);
+}
+.ps-word {
+  flex-shrink: 0;
+  padding: 10px var(--space-md);
+  border-radius: var(--radius-full);
+  background: var(--care-light); color: var(--care);
+  border: 1px solid var(--care-muted);
+  font-size: var(--pt-text-lg); font-weight: 700;
+  white-space: nowrap;
+  animation: pt-rise 0.22s var(--pt-spring);
+}
+.phrase-strip .ps-actions {
+  display: flex; gap: var(--space-sm); margin-top: var(--space-md);
+}
+.ps-speak {
+  flex: 1; min-height: var(--pt-touch);
+  display: flex; align-items: center; justify-content: center; gap: var(--space-sm);
+  border-radius: var(--pt-radius-sm); border: none;
+  background: var(--care); color: #fff;
+  font-family: var(--font); font-size: var(--pt-text-xl); font-weight: 800;
+  cursor: pointer; box-shadow: var(--pt-shadow-press);
+  transition: transform 0.12s var(--pt-ease), background 0.15s ease;
+}
+.ps-speak:active { transform: scale(0.97); background: var(--care-hover); }
+.ps-speak:disabled { background: var(--border-strong); color: var(--text-tertiary); box-shadow: none; cursor: default; }
+.ps-speak.speaking { background: var(--primary); animation: pt-speak-pulse 1.1s ease-in-out infinite; }
+@keyframes pt-speak-pulse { 0%,100%{ filter: brightness(1);} 50%{ filter: brightness(1.12);} }
+.ps-speak svg { width: 22px; height: 22px; stroke: currentColor; fill: none; stroke-width: 2.2; }
+.ps-iconbtn {
+  width: var(--pt-touch); height: var(--pt-touch); flex-shrink: 0;
+  border-radius: var(--pt-radius-sm);
+  border: 1px solid var(--border); background: var(--pt-surface);
+  font-size: 22px; color: var(--text-secondary); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.15s ease;
+}
+.ps-iconbtn:active { background: var(--bg-inset); }
+
+/* ---------- "SPELL IT OUT" secondary affordance ---------- */
+.spell-toggle {
+  width: 100%; min-height: 52px;
+  display: flex; align-items: center; justify-content: center; gap: var(--space-sm);
+  border-radius: var(--pt-radius-sm);
+  border: 1px dashed var(--border-strong); background: transparent;
+  font-family: var(--font); font-size: var(--pt-text-md); font-weight: 600;
+  color: var(--text-secondary); cursor: pointer;
+  margin-bottom: var(--pt-gap);
+}
+.spell-toggle:active { background: var(--bg-inset); }
+.spell-panel { display: none; }
+.spell-panel.open { display: block; animation: pt-rise 0.25s var(--pt-ease); }
+
+/* ---------- AUTOCOMPLETE dropdown ---------- */
+.autocomplete {
+  position: relative;
+  margin: calc(var(--space-sm) * -1) 0 var(--pt-gap);
+}
+.ac-list {
+  display: none;
+  flex-direction: column;
+  background: var(--pt-surface);
+  border: 1px solid var(--care-muted);
+  border-radius: var(--pt-radius-sm);
+  box-shadow: var(--pt-shadow);
+  overflow: hidden;
+}
+.ac-list.visible { display: flex; animation: pt-rise 0.18s var(--pt-ease); }
+.ac-item {
+  display: flex; align-items: center; gap: var(--space-md);
+  min-height: 56px; padding: 0 var(--space-lg);
+  border: none; border-bottom: 1px solid var(--border);
+  background: transparent; cursor: pointer; text-align: left;
+  font-family: var(--font);
+}
+.ac-item:last-child { border-bottom: none; }
+.ac-item:active { background: var(--care-light); }
+.ac-item .ac-word { font-size: var(--pt-text-lg); font-weight: 700; color: var(--text-primary); }
+.ac-item .ac-word b { color: var(--care); }
+.ac-item .ac-tag {
+  margin-left: auto; font-size: var(--pt-text-md); color: var(--text-tertiary); font-weight: 500;
+}
+
+/* ---------- CLINICIAN TOOLS DRAWER ---------- */
+.clin-drawer { margin-top: var(--space-2xl); }
+.clin-toggle {
+  width: 100%; min-height: 52px;
+  display: flex; align-items: center; gap: var(--space-md);
+  padding: 0 var(--space-lg);
+  border-radius: var(--pt-radius-sm);
+  border: 1px solid var(--border); background: var(--pt-surface);
+  font-family: var(--font); font-size: var(--pt-text-md); font-weight: 600;
+  color: var(--text-secondary); cursor: pointer;
+}
+.clin-toggle .ct-ic { font-size: 18px; }
+.clin-toggle .ct-chev { margin-left: auto; transition: transform 0.2s var(--pt-ease); }
+.clin-drawer.open .clin-toggle .ct-chev { transform: rotate(180deg); }
+.clin-body { display: none; padding-top: var(--pt-gap); }
+.clin-drawer.open .clin-body { display: block; animation: pt-rise 0.25s var(--pt-ease); }
 </style>
 </head>
 <body>
@@ -1711,125 +2092,84 @@ body {
   </div><!-- /screen-container -->
 
   <!-- ===== RECEIVE ASL MODE SCREEN ===== -->
-  <div class="patient-mode-container" id="patientModeScreen">
-    <div class="direction-banner receive-asl">
-      <span>↑</span> Patient signs → You see text
+  <div class="patient-mode-container pt-scope" id="patientModeScreen">
+
+    <!-- 1. SENTENCE BUILDER (sticky top) -->
+    <div class="phrase-strip" id="phraseStrip">
+      <div class="ps-words" id="phraseWords">
+        <span class="ps-empty" id="phraseEmpty">Tap a need below, or sign to the camera…</span>
+      </div>
+      <div class="ps-actions">
+        <button class="ps-iconbtn" id="phraseBackspace" onclick="phraseBackspace()" title="Undo">⌫</button>
+        <button class="ps-iconbtn" id="phraseClear" onclick="phraseClear()" title="Clear">🗑</button>
+        <button class="ps-speak" id="phraseSpeak" onclick="phraseSpeak()" disabled>
+          <svg viewBox="0 0 24 24"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 010 7"/><path d="M19 5a9 9 0 010 14"/></svg>
+          Speak
+        </button>
+      </div>
     </div>
 
-    <!-- Demo Disclaimer -->
-    <div class="demo-disclaimer">
-      <span class="dd-icon">⚠</span>
-      ASL Recognition — a trained TensorFlow.js classifier reads 24 fingerspelling letters (A–Y, no J/Z) plus 8 medical signs (Help, Yes, No, Pain, Stop, Thank You, OK, Wait). A built-in fingerspelling model works out of the box; use the Teach panel below to add the medical gestures or fine-tune accuracy on your own webcam (saved on this device).
-    </div>
-
-    <!-- Patient Camera -->
-    <div class="patient-camera-card">
+    <!-- 2. CAMERA / RECOGNITION (required IDs preserved) -->
+    <div class="pt-cam patient-camera-card">
       <div class="patient-cam-viewport">
         <video id="patientCamFeed" autoplay playsinline></video>
         <canvas id="patientHandCanvas"></canvas>
         <div class="patient-cam-overlay" id="patientCamOverlay" onclick="togglePatientCamera()">
-          <div class="cam-icon">📷</div>
+          <div class="cam-icon">👋</div>
           <div class="cam-text">Tap to start signing</div>
         </div>
       </div>
-      <div class="hand-status" id="handStatus">
-        <div class="dot"></div>Camera off
-      </div>
+      <div class="hand-status" id="handStatus"><div class="dot"></div>Camera off</div>
       <div class="landmark-count" id="landmarkCount"></div>
       <div class="detected-sign" id="detectedSign"></div>
       <div class="spelling-buffer" id="spellingBufferDisplay"></div>
     </div>
 
-    <!-- Teach / Train Panel -->
-    <div class="teach-card" id="teachCard">
-      <div class="teach-header">
-        <div class="teach-title">🎓 Teach / Train Model</div>
-        <button class="teach-toggle" id="teachToggle" onclick="toggleTeachPanel()">Open</button>
+    <!-- 3. CONFIRM CHIP ("did you mean?") — hidden until a sign is recognized -->
+    <div class="confirm-chip" id="confirmChip" aria-live="polite">
+      <div class="cc-label">Did you mean…</div>
+      <div class="cc-top">
+        <div class="cc-guess" id="confirmGuess">—<small id="confirmConf"></small></div>
+        <button class="cc-confirm" onclick="confirmAccept()">✓ Yes</button>
       </div>
-      <div class="teach-body">
-        <div class="teach-status" id="teachStatus">No model yet — collect samples for each sign, then train.</div>
-        <div class="teach-hint">
-          Start the camera above. Pick a class, hold the sign, and Capture (or hold Auto-capture).
-          Collect ~30+ samples per class (include the <strong>NONE</strong> class with relaxed/empty hands),
-          then Train. The model is saved on this device and loads automatically next time.
-        </div>
-
-        <div class="teach-row">
-          <button class="teach-btn" onclick="teachPrevClass()">◀ Prev</button>
-          <div class="teach-class-display" id="teachClassDisplay">A</div>
-          <button class="teach-btn" onclick="teachNextClass()">Next ▶</button>
-        </div>
-        <div class="teach-row">
-          <span class="teach-count-badge" id="teachCountBadge">0 samples · total 0</span>
-        </div>
-
-        <div class="teach-row">
-          <button class="teach-btn primary" onclick="teachCapture()">📸 Capture</button>
-          <button class="teach-btn" id="teachAutoBtn" onpointerdown="teachAutoStart()" onpointerup="teachAutoStop()" onpointerleave="teachAutoStop()">⏺ Hold to auto-capture</button>
-        </div>
-
-        <div class="teach-classlist" id="teachClassList"></div>
-
-        <div class="teach-divider"></div>
-
-        <div class="teach-row">
-          <button class="teach-btn success" id="teachTrainBtn" onclick="teachTrain()">⚙ Train model</button>
-          <button class="teach-btn" onclick="teachUseModel()">▶ Use model (infer)</button>
-        </div>
-        <div class="teach-progress" id="teachProgress"></div>
-
-        <div class="teach-divider"></div>
-
-        <div class="teach-row">
-          <button class="teach-btn" onclick="teachDownloadModel()">⬇ Download model</button>
-          <button class="teach-btn" onclick="teachDownloadSamples()">⬇ Samples (JSON)</button>
-        </div>
-        <div class="teach-row">
-          <button class="teach-btn" onclick="document.getElementById('teachImportFile').click()">⬆ Import samples (JSON)</button>
-          <input type="file" id="teachImportFile" accept="application/json,.json" style="display:none" onchange="teachImportSamples(event)">
-        </div>
-        <div class="teach-row">
-          <button class="teach-btn danger" onclick="teachClearSamples()">🗑 Clear samples</button>
-          <button class="teach-btn danger" onclick="teachClearModel()">🗑 Clear model</button>
-        </div>
+      <div class="cc-alts" id="confirmAlts">
+        <button class="cc-clear" onclick="confirmClear()">Not this</button>
       </div>
     </div>
 
-    <!-- Patient Transcript -->
+    <!-- 4. BIG COMMON NEEDS (the bounded reliable path — front & center) -->
+    <div class="pt-heading">I need… <span class="pt-sub">tap to speak</span></div>
+    <div class="need-grid" id="needGrid"></div>
+
+    <!-- 5. YES / NO -->
+    <div class="pt-heading">Quick answer</div>
+    <div class="yesno-row">
+      <button class="yesno-btn yes" onclick="patientQuickReply('yes')"><span class="yn-ic">✓</span> Yes</button>
+      <button class="yesno-btn no"  onclick="patientQuickReply('no')"><span class="yn-ic">✕</span> No</button>
+    </div>
+
+    <!-- 6. SPELL IT OUT (demoted fingerspelling + autocomplete) -->
+    <button class="spell-toggle" id="spellToggle" onclick="toggleSpellPanel()">⌨ Spell it out</button>
+    <div class="spell-panel" id="spellPanel">
+      <div class="autocomplete">
+        <div class="ac-list" id="acList" aria-live="polite"></div>
+      </div>
+      <div style="font-size:var(--pt-text-md);color:var(--text-tertiary);text-align:center;padding:var(--space-sm) 0;">
+        Fingerspell A–Y to the camera. Suggestions appear above — tap one to add it.
+      </div>
+    </div>
+
+    <!-- 7. LIVE TRANSCRIPT (required ID preserved) -->
     <div class="patient-transcript-box">
       <div class="transcript-header">
-        <span class="live-dot"></span> Live Transcript — ASL Recognition
+        <span class="live-dot"></span> What we heard
       </div>
       <div class="patient-transcript-feed" id="patientTranscriptFeed">
-        <div class="transcript-empty">Start the camera — detected signs will appear here in real time</div>
+        <div class="transcript-empty">Detected signs appear here</div>
       </div>
     </div>
 
-    <!-- Patient Quick Responses -->
-    <div class="patient-quick-responses">
-      <div class="patient-resp-big yes" onclick="patientQuickReply('yes')">
-        <span class="pr-icon">✓</span>
-        <span class="pr-label">Yes</span>
-      </div>
-      <div class="patient-resp-big no" onclick="patientQuickReply('no')">
-        <span class="pr-icon">✕</span>
-        <span class="pr-label">No</span>
-      </div>
-      <div class="patient-resp-big idk" onclick="patientQuickReply('idk')">
-        <span class="pr-icon">?</span>
-        <span class="pr-label">Unsure</span>
-      </div>
-      <div class="patient-resp-big help" onclick="patientQuickReply('help')">
-        <span class="pr-icon">⚠</span>
-        <span class="pr-label">Help</span>
-      </div>
-      <div class="patient-resp-big repeat-req" onclick="patientQuickReply('repeat')">
-        <span class="pr-icon">↻</span>
-        <span class="pr-label">Repeat</span>
-      </div>
-    </div>
-
-    <!-- Quick Pain Scale -->
+    <!-- 8. Quick Pain Scale -->
     <div class="quick-pain-section">
       <div class="quick-pain-title">Quick Pain Report</div>
       <div class="quick-pain-slider">
@@ -1895,15 +2235,84 @@ body {
       </div>
     </div>
 
-    <!-- Back to Send ASL button -->
-    <button onclick="switchMode('send')" style="
-      width:100%;padding:14px;border-radius:var(--radius-md);
-      border:1px solid var(--border);background:var(--bg-elevated);
-      font-family:var(--font);font-size:13px;font-weight:500;
-      color:var(--text-secondary);cursor:pointer;margin-top:var(--space-sm);
-      transition:background 0.15s ease;" onmousedown="this.style.background='var(--bg-inset)'" onmouseup="this.style.background='var(--bg-elevated)'">
-      ← Switch to Send ASL
-    </button>
+    <!-- 9. CLINICIAN TOOLS DRAWER — tucks Teach, SOAP, Send-switch, demo away from patient -->
+    <div class="clin-drawer" id="clinDrawer">
+      <button class="clin-toggle" onclick="toggleClinDrawer()">
+        <span class="ct-ic">🩺</span> Clinician tools
+        <span class="ct-chev">⌄</span>
+      </button>
+      <div class="clin-body">
+
+        <!-- Demo disclaimer (moved here from the patient view) -->
+        <div class="demo-disclaimer">
+          <span class="dd-icon">⚠</span>
+          ASL Recognition — a trained TensorFlow.js classifier reads 24 fingerspelling letters (A–Y, no J/Z) plus 8 medical signs (Help, Yes, No, Pain, Stop, Thank You, OK, Wait). A built-in fingerspelling model works out of the box; use the Teach panel below to add the medical gestures or fine-tune accuracy on your own webcam (saved on this device).
+        </div>
+
+        <!-- Teach / Train Panel (relocated verbatim) -->
+        <div class="teach-card" id="teachCard">
+          <div class="teach-header">
+            <div class="teach-title">🎓 Teach / Train Model</div>
+            <button class="teach-toggle" id="teachToggle" onclick="toggleTeachPanel()">Open</button>
+          </div>
+          <div class="teach-body">
+            <div class="teach-status" id="teachStatus">No model yet — collect samples for each sign, then train.</div>
+            <div class="teach-hint">
+              Start the camera above. Pick a class, hold the sign, and Capture (or hold Auto-capture).
+              Collect ~30+ samples per class (include the <strong>NONE</strong> class with relaxed/empty hands),
+              then Train. The model is saved on this device and loads automatically next time.
+            </div>
+
+            <div class="teach-row">
+              <button class="teach-btn" onclick="teachPrevClass()">◀ Prev</button>
+              <div class="teach-class-display" id="teachClassDisplay">A</div>
+              <button class="teach-btn" onclick="teachNextClass()">Next ▶</button>
+            </div>
+            <div class="teach-row">
+              <span class="teach-count-badge" id="teachCountBadge">0 samples · total 0</span>
+            </div>
+
+            <div class="teach-row">
+              <button class="teach-btn primary" onclick="teachCapture()">📸 Capture</button>
+              <button class="teach-btn" id="teachAutoBtn" onpointerdown="teachAutoStart()" onpointerup="teachAutoStop()" onpointerleave="teachAutoStop()">⏺ Hold to auto-capture</button>
+            </div>
+
+            <div class="teach-classlist" id="teachClassList"></div>
+
+            <div class="teach-divider"></div>
+
+            <div class="teach-row">
+              <button class="teach-btn success" id="teachTrainBtn" onclick="teachTrain()">⚙ Train model</button>
+              <button class="teach-btn" onclick="teachUseModel()">▶ Use model (infer)</button>
+            </div>
+            <div class="teach-progress" id="teachProgress"></div>
+
+            <div class="teach-divider"></div>
+
+            <div class="teach-row">
+              <button class="teach-btn" onclick="teachDownloadModel()">⬇ Download model</button>
+              <button class="teach-btn" onclick="teachDownloadSamples()">⬇ Samples (JSON)</button>
+            </div>
+            <div class="teach-row">
+              <button class="teach-btn" onclick="document.getElementById('teachImportFile').click()">⬆ Import samples (JSON)</button>
+              <input type="file" id="teachImportFile" accept="application/json,.json" style="display:none" onchange="teachImportSamples(event)">
+            </div>
+            <div class="teach-row">
+              <button class="teach-btn danger" onclick="teachClearSamples()">🗑 Clear samples</button>
+              <button class="teach-btn danger" onclick="teachClearModel()">🗑 Clear model</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- SOAP note + transcript download -->
+        <div class="teach-row" style="display:flex;gap:var(--space-sm);">
+          <button class="teach-btn" onclick="generateClinicalNote()">📝 SOAP note</button>
+          <button class="teach-btn" onclick="downloadTranscript()">⬇ Transcript</button>
+        </div>
+
+        <button onclick="switchMode('send')" style="width:100%;padding:14px;border-radius:var(--radius-md);border:1px solid var(--border);background:var(--bg-elevated);font-family:var(--font);font-size:13px;font-weight:500;color:var(--text-secondary);cursor:pointer;margin-top:var(--space-md);">← Switch to Send ASL</button>
+      </div>
+    </div>
   </div>
 
   <!-- Tab Bar (2 tabs) -->
@@ -2418,6 +2827,9 @@ function init() {
   renderCommands('All');
   renderQuickPhrases();
   initSpeechRecognition();
+  // Patient-facing UI (need cards + sentence strip).
+  try { renderNeedGrid(); } catch(e) {}
+  try { renderPhraseStrip(); } catch(e) {}
   addLogEntry('system', 'SignBridge v5.1 initialized');
 }
 
@@ -2769,6 +3181,150 @@ const GESTURE_MEANING = {
   THANK_YOU: 'Thank You', OK: 'OK / Understand', WAIT: 'Wait'
 };
 
+/* ============================================================
+   PATIENT-FACING LEXICON (patient -> care team).
+   Complements the staff->patient commandData. New globals only.
+   ============================================================ */
+
+// ----- Curated "Common Need" cards -----
+const patientNeeds = [
+  { id: 'cant_breathe',     label: "Can't breathe",     phrase: "I can't breathe",                 icon: '🫁', category: 'Breathing', priority: 'emergency' },
+  { id: 'chest_pain',       label: 'Chest pain',        phrase: "I have chest pain",               icon: '💔', category: 'Pain',      priority: 'emergency' },
+  { id: 'going_to_be_sick', label: 'Going to be sick',  phrase: "I'm going to be sick",            icon: '🤮', category: 'Comfort',   priority: 'emergency' },
+  { id: 'help_now',         label: 'Help now',          phrase: "I need help right now",           icon: '🆘', category: 'Emergency', priority: 'emergency', quick: 'help' },
+  { id: 'in_pain',          label: 'In pain',           phrase: "I am in pain",                    icon: '😣', category: 'Pain',      priority: 'urgent' },
+  { id: 'need_pain_med',    label: 'Pain medicine',     phrase: "I need pain medicine",            icon: '💊', category: 'Pain',      priority: 'urgent' },
+  { id: 'nauseous',         label: 'Nauseous',          phrase: "I feel sick to my stomach",       icon: '🤢', category: 'Comfort',   priority: 'urgent' },
+  { id: 'dizzy',            label: 'Dizzy',             phrase: "I feel dizzy",                     icon: '💫', category: 'Comfort',   priority: 'urgent' },
+  { id: 'cold',             label: 'Cold',              phrase: "I am cold",                       icon: '🥶', category: 'Comfort',   priority: 'normal' },
+  { id: 'hot',              label: 'Hot',               phrase: "I am too warm",                   icon: '🥵', category: 'Comfort',   priority: 'normal' },
+  { id: 'thirsty',          label: 'Thirsty',           phrase: "I am thirsty",                    icon: '💧', category: 'Comfort',   priority: 'normal' },
+  { id: 'bathroom',         label: 'Bathroom',          phrase: "I need to use the bathroom",      icon: '🚻', category: 'Logistics', priority: 'normal' },
+  { id: 'reposition',       label: 'Move me',           phrase: "I need to change position",       icon: '🔄', category: 'Comfort',   priority: 'normal' },
+  { id: 'anxious',          label: 'Anxious',           phrase: "I feel anxious",                  icon: '😰', category: 'Emotional', priority: 'normal' },
+  { id: 'scared',           label: 'Scared',            phrase: "I am scared",                     icon: '😨', category: 'Emotional', priority: 'normal' },
+  { id: 'family',           label: 'My family',         phrase: "Where is my family?",             icon: '👪', category: 'Logistics', priority: 'normal' },
+  { id: 'how_long',         label: 'How long?',         phrase: "How much longer?",                icon: '⏱️', category: 'Logistics', priority: 'normal' },
+  { id: 'interpreter',      label: 'Interpreter',       phrase: "I need a sign language interpreter", icon: '🤟', category: 'Logistics', priority: 'urgent' },
+  { id: 'understand',       label: 'I understand',      phrase: "I understand",                    icon: '👍', category: 'Yes/No',    priority: 'normal', quick: 'yes' },
+  { id: 'dont_understand',  label: "Don't understand",  phrase: "I don't understand",              icon: '❓', category: 'Yes/No',    priority: 'normal', quick: 'idk' },
+  { id: 'repeat',           label: 'Say again',         phrase: "Please repeat that",              icon: '↻', category: 'Yes/No',    priority: 'normal', quick: 'repeat' }
+];
+
+// ----- Fingerspell autocomplete dictionary (flat) -----
+const patientWordList = [
+  'help','need','want','please','more','less','stop','wait','now','again',
+  'water','drink','eat','food','ice','blanket','pillow','bathroom','toilet','bedpan',
+  'medicine','medication','pill','shot','iv','oxygen','mask','tube','call','nurse',
+  'doctor','interpreter','family','wife','husband','mother','father','son','daughter',
+  'phone','glasses','hearing aid','paper','pen','write','sign','deaf',
+  'pain','hurt','hurts','sore','ache','aching','sharp','dull','burning','throbbing',
+  'cramp','pressure','tight','numb','tingling','itchy','itch','sick','nausea','nauseous',
+  'vomit','throw up','dizzy','lightheaded','faint','weak','tired','sleepy','shaky',
+  'cold','chills','shivering','hot','warm','sweaty','fever','dry','thirsty','hungry',
+  'short of breath','breathe','breathing','choking','cough','sore throat','hoarse',
+  'headache','heartburn','bloated','gas','constipated','full bladder','blurry','ringing',
+  'head','face','eye','ear','nose','mouth','throat','neck','shoulder','arm','elbow',
+  'wrist','hand','finger','chest','heart','lung','back','stomach','belly','side',
+  'hip','leg','knee','ankle','foot','toe','incision','wound','skin','bandage','drain',
+  'scared','afraid','anxious','nervous','worried','upset','sad','crying','confused',
+  'lost','alone','okay','fine','better','worse','comfortable','uncomfortable','relax',
+  'calm','safe','frustrated','angry','embarrassed',
+  'yes','no','maybe','done','finished','ready','not yet','i understand','i dont understand',
+  'understand','repeat','slower','question','thank you','sorry',
+  'when','how long','soon','later','today','tonight','morning','minutes','hours',
+  'surgery','operation','recovery','home','discharge','wake up','asleep','before','after',
+  'results','test','where am i','what time','allergy','allergic','diabetic','pregnant',
+  'zero','one','two','three','four','five','six','seven','eight','nine','ten',
+  'a little','a lot','very','too much'
+];
+
+// ----- Phrase bank (grouped) -----
+const patientPhraseBank = {
+  Pain: [
+    { text: "I am in pain" },
+    { text: "My pain is a {n} out of 10", tpl: true },
+    { text: "The pain is here", note: "use with point-to-body" },
+    { text: "My pain is getting worse" },
+    { text: "I need pain medicine" },
+    { text: "The pain medicine is not working" },
+    { text: "It hurts when I move" },
+    { text: "It hurts to breathe" }
+  ],
+  Breathing: [
+    { text: "I can't breathe", priority: 'emergency' },
+    { text: "I can't catch my breath", priority: 'urgent' },
+    { text: "I feel like I'm choking", priority: 'emergency' },
+    { text: "My throat hurts" },
+    { text: "I need to cough" },
+    { text: "Can I have more oxygen?" }
+  ],
+  Comfort: [
+    { text: "I feel sick to my stomach" },
+    { text: "I'm going to be sick", priority: 'urgent' },
+    { text: "I feel dizzy" },
+    { text: "I am cold" },
+    { text: "I am too warm" },
+    { text: "I am thirsty" },
+    { text: "Can I have some water or ice?" },
+    { text: "I need another blanket" },
+    { text: "I need to change my position" },
+    { text: "I am uncomfortable" },
+    { text: "Something feels itchy" }
+  ],
+  Emotional: [
+    { text: "I feel anxious" },
+    { text: "I am scared" },
+    { text: "Please stay with me" },
+    { text: "Can you explain what is happening?" },
+    { text: "I am ready" },
+    { text: "I need a minute" }
+  ],
+  Logistics: [
+    { text: "I need to use the bathroom" },
+    { text: "Where is my family?" },
+    { text: "Can my family come in?" },
+    { text: "How much longer?" },
+    { text: "When is my surgery?" },
+    { text: "When can I go home?" },
+    { text: "Where am I?" },
+    { text: "What time is it?" },
+    { text: "I need a sign language interpreter", priority: 'urgent' },
+    { text: "Please face me so I can read your lips" },
+    { text: "Please write it down" },
+    { text: "I need my glasses", note: "or: hearing aid / phone" }
+  ],
+  Medical: [
+    { text: "I am allergic to {x}", tpl: true },
+    { text: "I take medication for {x}", tpl: true },
+    { text: "I am diabetic" },
+    { text: "I might be pregnant" },
+    { text: "I have not eaten or had water" }
+  ],
+  'Yes/No': [
+    { text: "Yes" },
+    { text: "No" },
+    { text: "I understand" },
+    { text: "I don't understand" },
+    { text: "Please repeat that" },
+    { text: "Please go slower" },
+    { text: "I have a question" },
+    { text: "Thank you" }
+  ]
+};
+
+// ----- Gesture-class -> spoken phrase + alternates -----
+const gesturePhraseMap = {
+  HELP:      { phrase: "I need help",     alternates: ["I need help right now", "Please get the nurse"], priority: 'urgent' },
+  PAIN:      { phrase: "I am in pain",    alternates: ["My pain is getting worse", "I need pain medicine"], priority: 'urgent' },
+  STOP:      { phrase: "Please stop",     alternates: ["Wait, stop for a moment", "That hurts, please stop"], priority: 'urgent' },
+  WAIT:      { phrase: "Please wait",     alternates: ["Give me a moment", "Not yet"], priority: 'normal' },
+  YES:       { phrase: "Yes",             alternates: ["Yes, that's right", "Okay, go ahead"], priority: 'normal' },
+  NO:        { phrase: "No",              alternates: ["No, that's not right", "Please don't"], priority: 'normal' },
+  OK:        { phrase: "I understand",    alternates: ["Okay", "That's fine"], priority: 'normal' },
+  THANK_YOU: { phrase: "Thank you",       alternates: ["Thank you so much"], priority: 'normal' }
+};
+
 async function initMediaPipeHands() {
   const statusEl = document.getElementById('handStatus');
   // The ES module exposes its exports on window.SB_TasksVision once it finishes loading.
@@ -2998,6 +3554,13 @@ function recognizeHands(result) {
   for(let i = 0; i < nClasses; i++) { if(probs[i] > topProb) { topProb = probs[i]; topIdx = i; } }
   const rawCls = activeLabels[topIdx];
 
+  // Top-3 classes (for the confirm chip's "did you mean" alternates).
+  const ranked = activeLabels
+    .map((lbl, i) => ({ lbl, p: probs[i] }))
+    .filter(o => o.lbl !== 'NONE')
+    .sort((a, b) => b.p - a.p)
+    .slice(0, 3);
+
   // Temporal smoothing.
   const smoothed = smoothPrediction(rawCls, topProb);
   if(!smoothed) return;
@@ -3015,11 +3578,24 @@ function recognizeHands(result) {
   if(ASL_GESTURES_LIST.includes(cls)) {
     // ---- Gesture class ----
     const name = GESTURE_MEANING[cls] || cls.replace('_', ' ');
+    const gp = gesturePhraseMap[cls] || null;
+    // Build "did you mean" alternates: the gesture's own alt phrasings first,
+    // then any other top-ranked gesture classes the model considered.
+    const altList = [];
+    if(gp && gp.alternates) gp.alternates.forEach(a => altList.push({ word: a }));
+    ranked.forEach(r => {
+      if(r.lbl !== cls && gesturePhraseMap[r.lbl]) {
+        altList.push({ word: gesturePhraseMap[r.lbl].phrase, conf: r.p });
+      }
+    });
     detected = {
       sign: name,
       meaning: `ASL Sign: "${name}" (${Math.round(conf*100)}% match)`,
       isGesture: true,
-      confidence: conf
+      confidence: conf,
+      guessPhrase: gp ? gp.phrase : name,
+      priority: gp ? gp.priority : 'normal',
+      alts: altList
     };
     spellingBuffer = '';   // gestures reset the fingerspelling buffer
   } else {
@@ -3502,6 +4078,23 @@ function showDetection(item) {
   const icon = item.isLetter ? '🔤' : item.isSpelling ? '📝' : '✋';
   addPatientTranscript(item.meaning, icon);
 
+  // ---- New patient-facing hooks (additive) ----
+  if(item.isLetter) {
+    // Surface fingerspelling autocomplete as the buffer grows.
+    try { updateAutocomplete(); } catch(e) {}
+  } else if(item.isGesture) {
+    // Drive the tap-to-confirm "did you mean?" chip from a recognized gesture.
+    try {
+      showConfirm(item.guessPhrase || item.sign, item.confidence, item.alts || [], item.priority || 'normal');
+    } catch(e) {}
+  } else if(item.isSpelling) {
+    // A completed spelled word -> offer it as a one-tap confirm.
+    try {
+      const guess = (item.commandMatch && item.commandMatch.cmd) ? item.commandMatch.cmd : item.sign;
+      showConfirm(guess, item.confidence, [], 'normal');
+    } catch(e) {}
+  }
+
   setTimeout(() => { signEl.classList.remove('show'); signEl.className = 'detected-sign'; }, 2500);
 }
 
@@ -3551,6 +4144,10 @@ function stopPatientCamera() {
   document.getElementById('handStatus').className = 'hand-status';
   document.getElementById('handStatus').innerHTML = '<div class="dot"></div>Camera off';
   document.getElementById('landmarkCount').classList.remove('visible');
+  // Clear transient recognition affordances.
+  try { confirmClear(); } catch(e) {}
+  const acList = document.getElementById('acList');
+  if(acList) { acList.classList.remove('visible'); acList.innerHTML = ''; }
 }
 
 // ===== SESSION LOG =====
@@ -3636,17 +4233,25 @@ function switchMode(mode) {
   const receiveBtn = document.getElementById('modeReceive');
   const patientScreen = document.getElementById('patientModeScreen');
 
+  // Hide demo chrome (version badge + walkthrough launcher) in the patient view for a clean,
+  // calm screen; show it only on the clinician (Send) side.
+  const demoFab = document.querySelector('.demo-fab');
+  const demoBadge = document.querySelector('.demo-badge');
   if(mode === 'receive') {
     app.classList.add('patient-active');
     patientScreen.classList.add('active');
     sendBtn.classList.remove('active');
     receiveBtn.classList.add('active');
+    if(demoFab) demoFab.style.display = 'none';
+    if(demoBadge) demoBadge.style.display = 'none';
     addLogEntry('system', 'Switched to Receive ASL');
   } else {
     app.classList.remove('patient-active');
     patientScreen.classList.remove('active');
     sendBtn.classList.add('active');
     receiveBtn.classList.remove('active');
+    if(demoFab) demoFab.style.display = '';
+    if(demoBadge) demoBadge.style.display = '';
     if(cameraActive) stopPatientCamera();
     addLogEntry('system', 'Switched to Send ASL');
   }
@@ -3702,6 +4307,228 @@ function renderPatientTranscript() {
       </div>
     </div>
   `).join('');
+}
+
+/* ============================================================
+   PATIENT-FACING FEATURES: need cards, phrase strip, confirm
+   chip, autocomplete, drawers. All additive; reuses existing
+   addPatientTranscript / speechSynthesis / matchSpellingToCommand.
+   ============================================================ */
+
+// ----- Plain-language TTS (mirrors speakPhrase() pattern) -----
+function speakPatient(text) {
+  if(!('speechSynthesis' in window) || !text) return;
+  try {
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'en-US'; u.rate = 0.85; u.pitch = 1.0;
+    const voices = speechSynthesis.getVoices();
+    const match = voices.find(v => v.lang && v.lang.startsWith('en'));
+    if(match) u.voice = match;
+    speechSynthesis.speak(u);
+  } catch(e) { /* best-effort */ }
+}
+
+// ----- Priority escalation (emergency/urgent) -----
+function escalatePriority(priority, phrase) {
+  if(priority === 'emergency') {
+    try {
+      document.getElementById('emergencyModal').classList.add('active');
+      const sub = document.querySelector('#emergencyModal .em-text');
+      if(sub) sub.textContent = phrase || 'Patient needs help now';
+    } catch(e) {}
+    addLogEntry('system', 'EMERGENCY (patient): ' + phrase);
+  } else if(priority === 'urgent') {
+    addLogEntry('system', 'URGENT (patient): ' + phrase);
+  }
+}
+
+// ----- PHRASE STRIP / SENTENCE BUILDER -----
+let phraseWords = [];
+
+function renderPhraseStrip() {
+  const wrap = document.getElementById('phraseWords');
+  const speakBtn = document.getElementById('phraseSpeak');
+  if(!wrap) return;
+  if(phraseWords.length === 0) {
+    wrap.innerHTML = '<span class="ps-empty" id="phraseEmpty">Tap a need below, or sign to the camera…</span>';
+  } else {
+    wrap.innerHTML = phraseWords.map(w =>
+      `<span class="ps-word">${escapeHtml(w)}</span>`
+    ).join('');
+  }
+  if(speakBtn) speakBtn.disabled = phraseWords.length === 0;
+}
+
+function phraseAdd(word) {
+  if(!word) return;
+  phraseWords.push(word);
+  renderPhraseStrip();
+}
+function phraseBackspace() {
+  phraseWords.pop();
+  renderPhraseStrip();
+}
+function phraseClear() {
+  phraseWords = [];
+  renderPhraseStrip();
+}
+function phraseSpeak() {
+  if(phraseWords.length === 0) return;
+  const sentence = phraseWords.join(' ');
+  const btn = document.getElementById('phraseSpeak');
+  if(btn) btn.classList.add('speaking');
+  if('speechSynthesis' in window) {
+    try {
+      speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(sentence);
+      u.lang = 'en-US'; u.rate = 0.85; u.pitch = 1.0;
+      const voices = speechSynthesis.getVoices();
+      const match = voices.find(v => v.lang && v.lang.startsWith('en'));
+      if(match) u.voice = match;
+      u.onend = () => { if(btn) btn.classList.remove('speaking'); };
+      u.onerror = () => { if(btn) btn.classList.remove('speaking'); };
+      speechSynthesis.speak(u);
+    } catch(e) { if(btn) btn.classList.remove('speaking'); }
+  } else {
+    setTimeout(() => { if(btn) btn.classList.remove('speaking'); }, 800);
+  }
+  addLogEntry('sign', 'Patient sentence: "' + sentence + '"');
+  addPatientTranscript('Patient: ' + sentence, '🗣');
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+// ----- COMMON-NEED CARDS -----
+function renderNeedGrid() {
+  const grid = document.getElementById('needGrid');
+  if(!grid) return;
+  grid.innerHTML = patientNeeds.map((n, i) => {
+    const cls = 'need-card' +
+      (n.priority === 'emergency' ? ' emergency' : '') +
+      (n.priority === 'urgent' ? ' urgent' : '');
+    return `<button class="${cls}" data-need="${i}" onclick="needTap(${i})">
+      <span class="nc-emoji">${n.icon}</span>
+      <span class="nc-label">${escapeHtml(n.label)}</span>
+    </button>`;
+  }).join('');
+}
+
+function needTap(i) {
+  const n = patientNeeds[i];
+  if(!n) return;
+  // Map dual-purpose cards onto the existing quick-reply log semantics.
+  if(n.quick) { try { patientQuickReply(n.quick); } catch(e) {} }
+  const card = document.querySelector(`.need-card[data-need="${i}"]`);
+  if(card) { card.classList.remove('sent'); void card.offsetWidth; card.classList.add('sent'); }
+  speakPatient(n.phrase);
+  phraseAdd(n.label);
+  addPatientTranscript('Patient: ' + n.phrase, '🗣');
+  addLogEntry('sign', 'Patient need: ' + n.phrase);
+  escalatePriority(n.priority, n.phrase);
+}
+
+// ----- CONFIRM CHIP ("did you mean?") -----
+let currentGuess = null;
+let currentGuessPriority = 'normal';
+
+function showConfirm(word, conf, alts, priority) {
+  const chip = document.getElementById('confirmChip');
+  const guessEl = document.getElementById('confirmGuess');
+  const confEl = document.getElementById('confirmConf');
+  const altsEl = document.getElementById('confirmAlts');
+  if(!chip || !guessEl || !altsEl) return;
+  currentGuess = word;
+  currentGuessPriority = priority || 'normal';
+  // Rebuild: guess text + the small (% sure) element.
+  guessEl.innerHTML = escapeHtml(word) + '<small id="confirmConf"></small>';
+  const newConf = document.getElementById('confirmConf');
+  if(newConf && conf != null) newConf.textContent = Math.round(conf * 100) + '% sure';
+  // Rebuild alternates BEFORE the .cc-clear button.
+  const clearBtn = '<button class="cc-clear" onclick="confirmClear()">Not this</button>';
+  let altHtml = '';
+  (alts || []).slice(0, 2).forEach(a => {
+    const w = (typeof a === 'string') ? a : a.word;
+    const c = (typeof a === 'object' && a.conf != null) ? `<span class="ac-hint">${Math.round(a.conf*100)}%</span>` : '';
+    altHtml += `<button class="alt-chip" onclick="confirmPick('${escapeAttr(w)}')">${escapeHtml(w)} ${c}</button>`;
+  });
+  altsEl.innerHTML = altHtml + clearBtn;
+  chip.classList.toggle('urgent', currentGuessPriority === 'emergency' || currentGuessPriority === 'urgent');
+  chip.classList.add('visible');
+}
+
+function escapeAttr(s) { return String(s).replace(/'/g, "\\'").replace(/"/g, '&quot;'); }
+
+function confirmAccept() {
+  if(currentGuess) {
+    speakPatient(currentGuess);
+    phraseAdd(currentGuess);
+    addPatientTranscript('Patient: ' + currentGuess, '🗣');
+    addLogEntry('sign', 'Patient confirmed: ' + currentGuess);
+    escalatePriority(currentGuessPriority, currentGuess);
+  }
+  confirmClear();
+}
+function confirmPick(word) {
+  if(word) {
+    speakPatient(word);
+    phraseAdd(word);
+    addPatientTranscript('Patient: ' + word, '🗣');
+    addLogEntry('sign', 'Patient picked: ' + word);
+  }
+  confirmClear();
+}
+function confirmClear() {
+  currentGuess = null;
+  currentGuessPriority = 'normal';
+  const chip = document.getElementById('confirmChip');
+  if(chip) { chip.classList.remove('visible'); chip.classList.remove('urgent'); }
+}
+
+// ----- AUTOCOMPLETE (fingerspelling) -----
+function updateAutocomplete() {
+  const list = document.getElementById('acList');
+  if(!list) return;
+  const buf = (typeof spellingBuffer === 'string') ? spellingBuffer.toLowerCase() : '';
+  if(buf.length < 2) { list.classList.remove('visible'); list.innerHTML = ''; return; }
+  const matches = patientWordList.filter(w => w.toLowerCase().startsWith(buf)).slice(0, 4);
+  if(matches.length === 0) { list.classList.remove('visible'); list.innerHTML = ''; return; }
+  list.innerHTML = matches.map(w => {
+    const disp = '<b>' + escapeHtml(w.slice(0, buf.length)) + '</b>' + escapeHtml(w.slice(buf.length));
+    return `<button class="ac-item" onclick="acPick('${escapeAttr(w)}')">
+      <span class="ac-word">${disp}</span>
+      <span class="ac-tag">spell</span>
+    </button>`;
+  }).join('');
+  list.classList.add('visible');
+}
+
+function acPick(word) {
+  if(word) {
+    speakPatient(word);
+    phraseAdd(word);
+    addPatientTranscript('Patient: ' + word, '🗣');
+    addLogEntry('sign', 'Patient spelled: ' + word);
+  }
+  spellingBuffer = '';
+  lastLetter = '';
+  const list = document.getElementById('acList');
+  if(list) { list.classList.remove('visible'); list.innerHTML = ''; }
+  const bufferEl = document.getElementById('spellingBufferDisplay');
+  if(bufferEl) { bufferEl.textContent = ''; bufferEl.classList.remove('visible'); }
+}
+
+// ----- DRAWER / PANEL TOGGLES -----
+function toggleClinDrawer() {
+  const d = document.getElementById('clinDrawer');
+  if(d) d.classList.toggle('open');
+}
+function toggleSpellPanel() {
+  const p = document.getElementById('spellPanel');
+  if(p) p.classList.toggle('open');
 }
 
 // ===== BODY MAP =====

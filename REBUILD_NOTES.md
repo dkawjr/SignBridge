@@ -72,3 +72,82 @@ open the localhost URL → **Receive ASL** → start camera.
 - ❌ NOT verified: live-camera recognition accuracy (no webcam available to the build) — no live
   accuracy is claimed. The global hand-orientation match (see orientation note) is unconfirmed until
   the first live session.
+
+## Patient UX + features (2026-06-23)
+
+### Intent
+Redesigned the **Receive ASL** (patient-facing) screen so a scared PACU patient sees a calm,
+big-touch-target layout: a sentence strip, a clean camera, a tap-to-confirm chip, big "common need"
+cards, and a Yes/No binary - with free fingerspelling demoted to a "Spell it out" affordance and all
+clinician/admin tools tucked behind one drawer. **The recognition pipeline was not changed** beyond
+two additive hooks; only the patient screen's markup/CSS and some new self-contained JS were added.
+
+### CSS (additive, end of `<style>`)
+- New **patient-scoped token layer** extending `:root` and `[data-theme="dark"]`: a teal `--care`
+  accent, warmer `--pt-bg`/`--pt-surface`, a LARGE patient type scale (`--pt-text-hero/xl/lg/md`),
+  softer `--pt-radius`, `--pt-touch: 64px` min targets, and motion eases. Dark mode covered.
+  `prefers-reduced-motion` honored under `.pt-scope`.
+- New component classes: `.pt-cam` (premium camera card + breathing tracking dot), `.confirm-chip`
+  / `.alt-chip` (did-you-mean), `.need-grid`/`.need-card` (incl. `.urgent`/`.emergency`/`.sent`),
+  `.yesno-row`/`.yesno-btn`, `.phrase-strip`/`.ps-word`/`.ps-speak` (sentence builder),
+  `.spell-toggle`/`.spell-panel` + `.autocomplete`/`.ac-list`/`.ac-item`, `.clin-drawer`.
+- `.patient-mode-container.pt-scope` only sets background/padding - it does **not** touch `display`,
+  so the existing `.patient-mode-container[.active]` visibility logic is unchanged.
+
+### Markup (inner layout of `#patientModeScreen`, now has class `pt-scope`)
+Reordered to: sentence strip -> camera -> confirm chip -> need cards -> Yes/No -> "Spell it out"
+panel -> transcript -> existing quick-pain + body-map (verbatim) -> **clinician drawer**.
+- **All recognition IDs preserved** exactly once: `#patientCamFeed`, `#patientHandCanvas`,
+  `#handStatus`, `#landmarkCount`, `#detectedSign`, `#spellingBufferDisplay`,
+  `#patientTranscriptFeed`. `#teachCard` (full Teach panel) was **moved verbatim** into the
+  clinician drawer; SOAP-note + transcript-download buttons and the Send-mode switch live there too.
+- New IDs: `#phraseStrip/#phraseWords/#phraseSpeak/#phraseBackspace/#phraseClear`, `#confirmChip`
+  (`#confirmGuess/#confirmConf/#confirmAlts`), `#needGrid`, `#spellToggle/#spellPanel/#acList`,
+  `#clinDrawer`.
+
+### Lexicon data (new globals, no collisions)
+Added after `GESTURE_MEANING`: `patientNeeds` (21 first-person need cards w/ `priority`
+emergency|urgent|normal, some carry a `quick` mapping to `patientQuickReply`), `patientWordList`
+(~165-word fingerspell autocomplete dict), `patientPhraseBank` (grouped sentences w/ `tpl` blanks),
+`gesturePhraseMap` (8 gesture classes -> first-person phrase + alternates + priority).
+
+### New JS hooks / functions (all additive, self-contained)
+- **Phrase strip:** `phraseWords[]`, `renderPhraseStrip()`, `phraseAdd/phraseBackspace/phraseClear`,
+  `phraseSpeak()` (mirrors `speakPhrase()` TTS pattern: `SpeechSynthesisUtterance`, rate 0.85,
+  en voice, `.speaking` class via onend/onerror; logs + writes transcript).
+- **Need cards:** `renderNeedGrid()` + `needTap(i)` -> `.sent` flash, `speakPatient(phrase)`,
+  `phraseAdd(label)`, `addPatientTranscript('Patient: '+phrase)`, log, and `escalatePriority()`.
+- **Confirm chip:** `showConfirm(word,conf,alts,priority)`, `confirmAccept()`, `confirmPick(word)`,
+  `confirmClear()`. `escalatePriority()` fires the existing `#emergencyModal` for emergency items.
+- **Autocomplete:** `updateAutocomplete()` (prefix-matches live `spellingBuffer` >=2 chars against
+  `patientWordList`, renders <=4 `.ac-item`s) + `acPick(word)` (commits word, resets buffer).
+- **Drawers:** `toggleClinDrawer()`, `toggleSpellPanel()`. Helpers `speakPatient()`, `escapeHtml()`,
+  `escapeAttr()`.
+
+### Wiring into the recognition pipeline (the only engine-adjacent edits)
+- `recognizeHands()`: after computing top class, also builds a `ranked` top-3 (NONE excluded). The
+  **gesture** branch attaches `guessPhrase`/`priority`/`alts` (from `gesturePhraseMap` + ranked) to
+  the detected object. Letter/spelling logic unchanged.
+- `showDetection(item)`: appended a tail block - `isLetter` -> `updateAutocomplete()`; `isGesture`
+  -> `showConfirm(...)`; `isSpelling` -> `showConfirm(...)` for the completed word. Existing display
+  / buffer / transcript behavior untouched (the now-absent `#patientDetectedSign` write is already
+  null-guarded).
+- `stopPatientCamera()`: clears the confirm chip + autocomplete on camera stop.
+- `init()`: calls `renderNeedGrid()` + `renderPhraseStrip()` once.
+
+### Honest TODOs (not done; downstream)
+- Spanish: `spanishTranslations` was **not** extended with the new patient phrases, so patient-side
+  TTS is English-only for now (staff `speakPhrase('es')` path unchanged). `patientPhraseBank` and
+  the `tpl` blanks (pain-number, allergy/condition fill-ins) are defined but **not yet surfaced** in
+  the UI (cards speak the fixed `phrase`). Autocomplete feeds the phrase strip directly; it is not
+  yet routed through `matchSpellingToCommand` for fuzzy command resolution.
+- Urgent/emergency escalation currently logs + (for emergency) opens the existing modal; no separate
+  staff toast channel was added.
+
+### Verification
+- ✅ Both inline scripts pass `node --check` (module + classic) after all edits.
+- ✅ All 13 required recognition/IDs present exactly once; 18 new functions defined exactly once;
+  recognition functions (`onHandResults`/`recognizeHands`/`normalizeLandmarks`/`smoothPrediction`/
+  `tryLoadSavedModel`/`initMediaPipeHands`/`handDetectLoop`/`showDetection`) all intact; the
+  `onHandResults -> recognizeHands(result)` link preserved.
+- ❌ NOT visually/live verified (no browser/webcam in this build step) - downstream.
