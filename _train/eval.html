@@ -1,0 +1,54 @@
+<!doctype html><html><head><meta charset="utf-8">
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
+</head><body><pre id="log">loading…</pre>
+<script>
+const LOG=(m)=>{document.getElementById('log').textContent+="\n"+m;console.log(m);};
+const SRC="ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+const DROP=new Set([9,25]);
+async function evalAll(){
+  await tf.ready(); await tf.setBackend('webgl').catch(()=>tf.setBackend('cpu'));
+  const labels = await (await fetch('../model/labels.json')).json();
+  const model = await tf.loadLayersModel('../model/model.json');
+  // rebuild the SAME deterministic split used in training
+  const txt=await (await fetch('./keypoint.csv')).text();
+  const lines=txt.split("\n").filter(l=>l.trim().length>0);
+  const keptIdx=[...Array(26).keys()].filter(i=>!DROP.has(i));
+  const srcToTarget={}; keptIdx.forEach((src,t)=>srcToTarget[src]=t);
+  const X=[],Y=[];
+  for(const line of lines){const p=line.split(",").map(s=>parseFloat(s.trim()));const lab=p[0]|0;
+    if(DROP.has(lab))continue;const f=p.slice(1,43);if(f.length!==42||f.some(v=>!isFinite(v)))continue;
+    X.push(f);Y.push(srcToTarget[lab]);}
+  const idx=[...Array(X.length).keys()];
+  let s=12345;const rnd=()=>{s=(s*1103515245+12345)&0x7fffffff;return s/0x7fffffff;};
+  for(let i=idx.length-1;i>0;i--){const j=Math.floor(rnd()*(i+1));[idx[i],idx[j]]=[idx[j],idx[i]];}
+  const nVal=Math.floor(X.length*0.15);
+  const valI=idx.slice(0,nVal);
+  LOG("val samples: "+valI.length+"  labels: "+labels.join(""));
+
+  // single-orientation accuracy (matches training's val_acc)
+  let okS=0, okD=0, changed=0;
+  const B=512;
+  for(let off=0;off<valI.length;off+=B){
+    const batch=valI.slice(off,off+B);
+    const vecs=batch.map(i=>X[i]);
+    const mirs=vecs.map(v=>{const m=v.slice();for(let k=0;k<42;k+=2)m[k]=-m[k];return m;});
+    const single=tf.tidy(()=>model.predict(tf.tensor2d(vecs)).arraySync());
+    const mir=tf.tidy(()=>model.predict(tf.tensor2d(mirs)).arraySync());
+    for(let b=0;b<batch.length;b++){
+      const t=Y[batch[b]];
+      // single
+      let si=0,sp=-1; single[b].forEach((p,i)=>{if(p>sp){sp=p;si=i;}});
+      if(si===t) okS++;
+      // dual: best across single+mirror
+      let di=si, dp=sp; mir[b].forEach((p,i)=>{if(p>dp){dp=p;di=i;}});
+      if(di===t) okD++;
+      if(di!==si) changed++;
+    }
+  }
+  LOG("SINGLE-orientation val acc: "+(okS/valI.length).toFixed(4));
+  LOG("DUAL-orientation   val acc: "+(okD/valI.length).toFixed(4));
+  LOG("predictions changed by mirror option: "+changed+" ("+(100*changed/valI.length).toFixed(1)+"%)");
+  window.__evalDone=true;
+}
+window.__evalReady=true;
+</script></body></html>

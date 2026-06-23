@@ -1,0 +1,115 @@
+<!doctype html><html><head><meta charset="utf-8">
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
+</head><body><pre id="log">loading…</pre>
+<script>
+const LOG = (m)=>{document.getElementById('log').textContent += "\n"+m; console.log(m);};
+// Labels in source file order (index = class id in keypoint.csv)
+const SRC_LABELS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+// Target classes: drop J(9) and Z(25) -> A..Y minus J,Z
+const DROP = new Set([9,25]);
+
+async function trainAll(){
+  await tf.ready();
+  await tf.setBackend('webgl').catch(()=>tf.setBackend('cpu'));
+  LOG("backend: "+tf.getBackend());
+
+  // fetch + parse CSV
+  const txt = await (await fetch('./keypoint.csv')).text();
+  const lines = txt.split("\n").filter(l=>l.trim().length>0);
+  LOG("raw rows: "+lines.length);
+
+  // Build target label list (kept letters, in order)
+  const keptIdx = [...Array(26).keys()].filter(i=>!DROP.has(i));
+  const targetLabels = keptIdx.map(i=>SRC_LABELS[i]);          // ['A','B',...,'Y'] minus J,Z
+  const srcToTarget = {}; keptIdx.forEach((src,t)=>srcToTarget[src]=t);
+  const NUM = targetLabels.length;
+  LOG("target classes ("+NUM+"): "+targetLabels.join(""));
+
+  const X=[], Y=[];
+  for(const line of lines){
+    const parts = line.split(",").map(s=>parseFloat(s.trim()));
+    const lab = parts[0]|0;
+    if(DROP.has(lab)) continue;
+    const feat = parts.slice(1,43);                            // 42 values x0,y0,...,x20,y20
+    if(feat.length!==42 || feat.some(v=>!isFinite(v))) continue;
+    X.push(feat); Y.push(srcToTarget[lab]);
+    // NOTE: no mirror augmentation — handedness handled at inference (app tries both orientations).
+  }
+  LOG("samples after drop: "+X.length);
+
+  // class weights (inverse freq, normalized to mean 1)
+  const counts = new Array(NUM).fill(0); Y.forEach(y=>counts[y]++);
+  const total = Y.length;
+  const cw = {}; let mean=0;
+  for(let c=0;c<NUM;c++){ cw[c] = total/(NUM*counts[c]); mean+=cw[c]; }
+  mean/=NUM; for(let c=0;c<NUM;c++) cw[c]/=mean;
+
+  // shuffle (seeded-ish via index) and split 85/15
+  const idx=[...Array(X.length).keys()];
+  // deterministic shuffle
+  let s=12345; const rnd=()=>{s=(s*1103515245+12345)&0x7fffffff; return s/0x7fffffff;};
+  for(let i=idx.length-1;i>0;i--){const j=Math.floor(rnd()*(i+1));[idx[i],idx[j]]=[idx[j],idx[i]];}
+  const nVal=Math.floor(X.length*0.15);
+  const valI=idx.slice(0,nVal), trI=idx.slice(nVal);
+  const gather=(ii,arr)=>ii.map(i=>arr[i]);
+  const xTr=tf.tensor2d(gather(trI,X)), yTr=tf.tensor1d(gather(trI,Y),'int32');
+  const xVa=tf.tensor2d(gather(valI,X)), yVa=tf.tensor1d(gather(valI,Y),'int32');
+  const yTr1=tf.oneHot(yTr,NUM), yVa1=tf.oneHot(yVa,NUM);
+  LOG("train "+trI.length+"  val "+valI.length);
+
+  // stronger model to probe the achievable ceiling
+  const model=tf.sequential();
+  model.add(tf.layers.dense({units:256, activation:'relu', inputShape:[42]}));
+  model.add(tf.layers.batchNormalization());
+  model.add(tf.layers.dropout({rate:0.3}));
+  model.add(tf.layers.dense({units:128, activation:'relu'}));
+  model.add(tf.layers.dropout({rate:0.3}));
+  model.add(tf.layers.dense({units:64, activation:'relu'}));
+  model.add(tf.layers.dense({units:NUM, activation:'softmax'}));
+  model.compile({optimizer:tf.train.adam(0.001), loss:'categoricalCrossentropy', metrics:['accuracy']});
+
+  let bestVal=0;
+  await model.fit(xTr,yTr1,{
+    epochs:120, batchSize:256, validationData:[xVa,yVa1], classWeight:cw, shuffle:true,
+    callbacks:{onEpochEnd:(e,l)=>{ if(l.val_acc>bestVal)bestVal=l.val_acc;
+      if(e%15===0||e>=119) LOG(`epoch ${e}: loss ${l.loss.toFixed(3)} acc ${l.acc.toFixed(3)} val_acc ${l.val_acc.toFixed(3)}`);}}
+  });
+  LOG("best val_acc: "+bestVal.toFixed(4));
+
+  // TRUE train accuracy (dropout off) vs val -> diagnose under/overfit
+  const trPred=model.predict(xTr); const trAcc=(await tf.metrics.categoricalAccuracy(yTr1,trPred).mean().data())[0];
+  const pred = model.predict(xVa);
+  const acc = (await tf.metrics.categoricalAccuracy(yVa1, pred).mean().data())[0];
+  LOG("TRUE train acc (dropout off): "+trAcc.toFixed(4));
+  LOG("final val acc: "+acc.toFixed(4));
+
+  // per-class val accuracy + worst confusions
+  const yvArr = await yVa.data(); const pvArr = await pred.argMax(1).data();
+  const correct=new Array(NUM).fill(0), tot=new Array(NUM).fill(0);
+  const conf={};
+  for(let i=0;i<yvArr.length;i++){ const t=yvArr[i],p=pvArr[i]; tot[t]++; if(t===p)correct[t]++; else {const k=targetLabels[t]+"->"+targetLabels[p]; conf[k]=(conf[k]||0)+1;} }
+  const pc=targetLabels.map((L,c)=>L+":"+(tot[c]?(correct[c]/tot[c]).toFixed(2):"-")).join(" ");
+  LOG("per-class val acc: "+pc);
+  const topConf=Object.entries(conf).sort((a,b)=>b[1]-a[1]).slice(0,12).map(([k,v])=>k+"("+v+")").join(" ");
+  LOG("top confusions: "+topConf);
+
+  // save -> capture artifacts
+  let captured=null;
+  await model.save(tf.io.withSaveHandler(async (art)=>{
+    captured=art; return {modelArtifactsInfo:{dateSaved:new Date(),modelTopologyType:'JSON'}};
+  }));
+  // assemble standard LayersModel files
+  const modelJson = {
+    modelTopology: captured.modelTopology,
+    format:'layers-model', generatedBy:'signbridge-train', convertedBy:null,
+    weightsManifest:[{paths:['weights.bin'], weights: captured.weightSpecs}]
+  };
+  const wb = new Uint8Array(captured.weightData);
+  let bin=''; for(let i=0;i<wb.length;i++) bin+=String.fromCharCode(wb[i]);
+  const weightsB64 = btoa(bin);
+
+  return { ok:true, labels:targetLabels, valAcc:acc, bestVal, nTrain:trI.length, nVal:valI.length,
+           modelJson:JSON.stringify(modelJson), weightsB64 };
+}
+window.__trainReady=true;
+</script></body></html>

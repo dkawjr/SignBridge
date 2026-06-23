@@ -1,0 +1,5 @@
+# Large training data (re-downloadable from source; see _train/README)
+_train/*.csv
+_train/prepared.json
+node_modules/
+*.log
