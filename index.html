@@ -8,10 +8,21 @@
 <meta name="theme-color" id="themeColor" content="#FFFFFF">
 <title>SignBridge — Perioperative ASL Communication</title>
 
-<!-- MediaPipe Hands -->
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.min.js" crossorigin="anonymous"></script>
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils@0.3.1675466124/drawing_utils.min.js" crossorigin="anonymous"></script>
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1675466862/camera_utils.min.js" crossorigin="anonymous"></script>
+<!-- TensorFlow.js (classic global script) -->
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js" crossorigin="anonymous"></script>
+
+<!-- MediaPipe Tasks-Vision HandLandmarker (ES module) — loaded and exposed on window -->
+<script type="module">
+  import {
+    HandLandmarker,
+    FilesetResolver,
+    DrawingUtils
+  } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.21/vision_bundle.mjs";
+  // Expose the pieces the classic (non-module) app code needs.
+  window.SB_TasksVision = { HandLandmarker, FilesetResolver, DrawingUtils };
+  // Signal readiness so the classic code can (re)try landmarker init.
+  window.dispatchEvent(new Event('sb-tasks-vision-ready'));
+</script>
 
 <style>
 /* ===== RESET ===== */
@@ -1452,6 +1463,146 @@ body {
   transition: background 0.15s ease;
 }
 .quick-pain-send:active { background: var(--primary-hover); }
+
+/* ===== TEACH / TRAIN PANEL ===== */
+.teach-card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+  margin-bottom: var(--space-md);
+}
+.teach-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+}
+.teach-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+.teach-toggle {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--primary);
+  background: var(--primary-light);
+  border: 1px solid var(--primary-muted);
+  border-radius: var(--radius-full);
+  padding: 4px 10px;
+  cursor: pointer;
+}
+.teach-body { display: none; }
+.teach-card.expanded .teach-body { display: block; }
+.teach-hint {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-bottom: var(--space-md);
+  line-height: 1.5;
+}
+.teach-status {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 8px 10px;
+  border-radius: var(--radius-md);
+  background: var(--bg-inset);
+  color: var(--text-secondary);
+  margin-bottom: var(--space-md);
+}
+.teach-status.ok { background: var(--success-light); color: var(--success); }
+.teach-status.warn { background: var(--warning-light); color: var(--warning); }
+.teach-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-sm);
+  flex-wrap: wrap;
+}
+.teach-class-display {
+  flex: 1 1 auto;
+  min-width: 0;
+  text-align: center;
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--primary);
+  background: var(--primary-light);
+  border: 1px solid var(--primary-muted);
+  border-radius: var(--radius-md);
+  padding: var(--space-sm);
+  letter-spacing: 1px;
+}
+.teach-count-badge {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: var(--bg-inset);
+  border-radius: var(--radius-full);
+  padding: 4px 10px;
+  white-space: nowrap;
+}
+.teach-btn {
+  flex: 1 1 auto;
+  padding: 10px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  font-family: var(--font);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.teach-btn:active { background: var(--bg-inset); }
+.teach-btn.primary { background: var(--primary); color: #fff; border-color: var(--primary); }
+.teach-btn.primary:active { background: var(--primary-hover); }
+.teach-btn.success { background: var(--success); color: #fff; border-color: var(--success); }
+.teach-btn.danger { color: var(--danger); border-color: #FECACA; }
+.teach-btn.danger:active { background: var(--danger-light); }
+.teach-btn.active { background: var(--success-light); border-color: #BBF7D0; color: var(--success); }
+.teach-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.teach-progress {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-secondary);
+  background: var(--bg-inset);
+  border-radius: var(--radius-md);
+  padding: var(--space-sm);
+  margin-top: var(--space-sm);
+  white-space: pre-wrap;
+  max-height: 120px;
+  overflow-y: auto;
+  display: none;
+}
+.teach-progress.visible { display: block; }
+.teach-classlist {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: var(--space-sm);
+}
+.teach-chip {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 3px 7px;
+  border-radius: var(--radius-full);
+  background: var(--bg-inset);
+  color: var(--text-tertiary);
+  border: 1px solid var(--border);
+  cursor: pointer;
+}
+.teach-chip.has-samples { background: var(--success-light); color: var(--success); border-color: #BBF7D0; }
+.teach-chip.current { background: var(--primary); color: #fff; border-color: var(--primary); }
+.teach-divider {
+  height: 1px;
+  background: var(--border);
+  margin: var(--space-md) 0;
+}
 </style>
 </head>
 <body>
@@ -1568,7 +1719,7 @@ body {
     <!-- Demo Disclaimer -->
     <div class="demo-disclaimer">
       <span class="dd-icon">⚠</span>
-      ASL Recognition — Detects 26 ASL fingerspelling letters (A-Y) and 8 medical signs (Help, Yes, No, Pain, Stop, Thank You, OK, Wait). Fingerspelling auto-buffers into words.
+      ASL Recognition — a trained TensorFlow.js classifier reads 24 fingerspelling letters (A–Y, no J/Z) plus 8 medical signs (Help, Yes, No, Pain, Stop, Thank You, OK, Wait). A built-in fingerspelling model works out of the box; use the Teach panel below to add the medical gestures or fine-tune accuracy on your own webcam (saved on this device).
     </div>
 
     <!-- Patient Camera -->
@@ -1587,6 +1738,61 @@ body {
       <div class="landmark-count" id="landmarkCount"></div>
       <div class="detected-sign" id="detectedSign"></div>
       <div class="spelling-buffer" id="spellingBufferDisplay"></div>
+    </div>
+
+    <!-- Teach / Train Panel -->
+    <div class="teach-card" id="teachCard">
+      <div class="teach-header">
+        <div class="teach-title">🎓 Teach / Train Model</div>
+        <button class="teach-toggle" id="teachToggle" onclick="toggleTeachPanel()">Open</button>
+      </div>
+      <div class="teach-body">
+        <div class="teach-status" id="teachStatus">No model yet — collect samples for each sign, then train.</div>
+        <div class="teach-hint">
+          Start the camera above. Pick a class, hold the sign, and Capture (or hold Auto-capture).
+          Collect ~30+ samples per class (include the <strong>NONE</strong> class with relaxed/empty hands),
+          then Train. The model is saved on this device and loads automatically next time.
+        </div>
+
+        <div class="teach-row">
+          <button class="teach-btn" onclick="teachPrevClass()">◀ Prev</button>
+          <div class="teach-class-display" id="teachClassDisplay">A</div>
+          <button class="teach-btn" onclick="teachNextClass()">Next ▶</button>
+        </div>
+        <div class="teach-row">
+          <span class="teach-count-badge" id="teachCountBadge">0 samples · total 0</span>
+        </div>
+
+        <div class="teach-row">
+          <button class="teach-btn primary" onclick="teachCapture()">📸 Capture</button>
+          <button class="teach-btn" id="teachAutoBtn" onpointerdown="teachAutoStart()" onpointerup="teachAutoStop()" onpointerleave="teachAutoStop()">⏺ Hold to auto-capture</button>
+        </div>
+
+        <div class="teach-classlist" id="teachClassList"></div>
+
+        <div class="teach-divider"></div>
+
+        <div class="teach-row">
+          <button class="teach-btn success" id="teachTrainBtn" onclick="teachTrain()">⚙ Train model</button>
+          <button class="teach-btn" onclick="teachUseModel()">▶ Use model (infer)</button>
+        </div>
+        <div class="teach-progress" id="teachProgress"></div>
+
+        <div class="teach-divider"></div>
+
+        <div class="teach-row">
+          <button class="teach-btn" onclick="teachDownloadModel()">⬇ Download model</button>
+          <button class="teach-btn" onclick="teachDownloadSamples()">⬇ Samples (JSON)</button>
+        </div>
+        <div class="teach-row">
+          <button class="teach-btn" onclick="document.getElementById('teachImportFile').click()">⬆ Import samples (JSON)</button>
+          <input type="file" id="teachImportFile" accept="application/json,.json" style="display:none" onchange="teachImportSamples(event)">
+        </div>
+        <div class="teach-row">
+          <button class="teach-btn danger" onclick="teachClearSamples()">🗑 Clear samples</button>
+          <button class="teach-btn danger" onclick="teachClearModel()">🗑 Clear model</button>
+        </div>
+      </div>
     </div>
 
     <!-- Patient Transcript -->
@@ -2541,52 +2747,129 @@ function dismissVoiceMatch() {
   voiceMatchedCmd = null;
 }
 
-// ===== CAMERA + MEDIAPIPE (Patient/Receive mode only) =====
+// ===== CAMERA + MEDIAPIPE TASKS-VISION (Patient/Receive mode only) =====
+// `mpHands` stays the canonical "engine is ready" flag the rest of the app polls
+// (refreshConnStatus -> updateConnStatus('connEngine', !!mpHands)). It now holds the
+// tasks-vision HandLandmarker instance instead of the legacy Hands object.
 let mpHands = null;
-let patientMpCamera = null;
+let handLandmarker = null;     // alias of mpHands once created
+let handDrawingUtils = null;   // tasks-vision DrawingUtils bound to the overlay ctx
+let rafLoopId = null;          // requestAnimationFrame handle for the detect loop
 let handDetections = [];
 
-function initMediaPipeHands() {
+// ===== ASL CLASS LIST (single editable constant) =====
+// 24 letters (NO J or Z — motion letters) + 8 gestures + NONE garbage class.
+const ASL_LETTERS_LIST = ['A','B','C','D','E','F','G','H','I','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y'];
+const ASL_GESTURES_LIST = ['HELP','YES','NO','PAIN','STOP','THANK_YOU','OK','WAIT'];
+const ASL_CLASSES = [...ASL_LETTERS_LIST, ...ASL_GESTURES_LIST, 'NONE'];
+const NUM_CLASSES = ASL_CLASSES.length;
+// Pretty meanings for gesture classes (display only).
+const GESTURE_MEANING = {
+  HELP: 'Help', YES: 'Yes', NO: 'No', PAIN: 'Pain', STOP: 'Stop',
+  THANK_YOU: 'Thank You', OK: 'OK / Understand', WAIT: 'Wait'
+};
+
+async function initMediaPipeHands() {
   const statusEl = document.getElementById('handStatus');
+  // The ES module exposes its exports on window.SB_TasksVision once it finishes loading.
+  if(!window.SB_TasksVision || !window.SB_TasksVision.HandLandmarker) {
+    if(statusEl) statusEl.innerHTML = '<div class="dot"></div>Loading hand model…';
+    // Retry when the module signals ready (or poll as a fallback).
+    window.addEventListener('sb-tasks-vision-ready', () => { initMediaPipeHands(); }, { once: true });
+    setTimeout(() => { if(!handLandmarker) initMediaPipeHands(); }, 1500);
+    return;
+  }
   try {
-    mpHands = new Hands({
-      locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/${file}`
+    const { HandLandmarker, FilesetResolver } = window.SB_TasksVision;
+    const fileset = await FilesetResolver.forVisionTasks(
+      'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.21/wasm'
+    );
+    handLandmarker = await HandLandmarker.createFromOptions(fileset, {
+      baseOptions: {
+        modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task',
+        delegate: 'GPU'
+      },
+      runningMode: 'VIDEO',
+      numHands: 2
     });
-    mpHands.setOptions({
-      maxNumHands: 2,
-      modelComplexity: 1,
-      minDetectionConfidence: 0.6,
-      minTrackingConfidence: 0.5,
-    });
-    mpHands.onResults(onHandResults);
-    statusEl.innerHTML = '<div class="dot"></div>Hand model loaded — waiting for camera';
+    mpHands = handLandmarker; // engine-ready flag for the rest of the app
+    if(statusEl) statusEl.innerHTML = '<div class="dot"></div>Hand model loaded — waiting for camera';
+    // If a saved classifier exists, load it now so we boot straight into inference.
+    tryLoadSavedModel();
   } catch(e) {
-    statusEl.innerHTML = '<div class="dot"></div>MediaPipe loading...';
+    console.warn('HandLandmarker init failed, retrying:', e);
+    if(statusEl) statusEl.innerHTML = '<div class="dot"></div>Hand model loading…';
     setTimeout(initMediaPipeHands, 2000);
   }
 }
 
-function onHandResults(results) {
+// rAF detection loop — replaces the legacy Camera({onFrame}) pump.
+let _lastVideoTime = -1;
+function handDetectLoop() {
+  if(!cameraActive || !handLandmarker) { rafLoopId = null; return; }
+  const video = document.getElementById('patientCamFeed');
+  if(video && video.readyState >= 2 && video.currentTime !== _lastVideoTime) {
+    _lastVideoTime = video.currentTime;
+    let result = null;
+    try {
+      result = handLandmarker.detectForVideo(video, performance.now());
+    } catch(e) { /* transient — skip this frame */ }
+    if(result) onHandResults(result);
+  }
+  rafLoopId = requestAnimationFrame(handDetectLoop);
+}
+
+// Tasks-vision result shape:
+//   result.landmarks    -> [ [ {x,y,z} x21 ], ... ]  (image-normalized 0..1)
+//   result.handedness   -> [ [ {categoryName:'Left'|'Right', ...} ], ... ]
+function onHandResults(result) {
   const canvas = document.getElementById('patientHandCanvas');
   if(!canvas) return;
   const ctx = canvas.getContext('2d');
   const statusEl = document.getElementById('handStatus');
   const countEl = document.getElementById('landmarkCount');
+  const video = document.getElementById('patientCamFeed');
 
-  canvas.width = results.image.width;
-  canvas.height = results.image.height;
+  // Size the overlay to the video's native resolution.
+  const w = (video && video.videoWidth) || 640;
+  const h = (video && video.videoHeight) || 480;
+  canvas.width = w;
+  canvas.height = h;
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  if(results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
-    const numHands = results.multiHandLandmarks.length;
-    statusEl.className = 'hand-status tracking';
-    statusEl.innerHTML = `<div class="dot"></div>${numHands} hand${numHands > 1 ? 's' : ''} tracked — 21 landmarks each`;
-    countEl.textContent = `${numHands * 21} landmarks`;
-    countEl.classList.add('visible');
+  const hands = (result && result.landmarks) || [];
+  if(hands.length > 0) {
+    const numHands = hands.length;
+    if(statusEl){
+      statusEl.className = 'hand-status tracking';
+      statusEl.innerHTML = `<div class="dot"></div>${numHands} hand${numHands > 1 ? 's' : ''} tracked — 21 landmarks each`;
+    }
+    if(countEl){
+      countEl.textContent = `${numHands * 21} landmarks`;
+      countEl.classList.add('visible');
+    }
 
-    for(const landmarks of results.multiHandLandmarks) {
-      drawConnectors(ctx, landmarks, HAND_CONNECTIONS, { color: 'rgba(37,99,235,0.6)', lineWidth: 2 });
-      drawLandmarks(ctx, landmarks, { color: 'rgba(37,99,235,0.9)', lineWidth: 1, radius: 3 });
+    // Lazily bind DrawingUtils to this ctx.
+    const DU = window.SB_TasksVision && window.SB_TasksVision.DrawingUtils;
+    const HL = window.SB_TasksVision && window.SB_TasksVision.HandLandmarker;
+    if(DU && (!handDrawingUtils || handDrawingUtils.__ctx !== ctx)) {
+      handDrawingUtils = new DU(ctx);
+      handDrawingUtils.__ctx = ctx;
+    }
+
+    for(const landmarks of hands) {
+      if(handDrawingUtils && HL && HL.HAND_CONNECTIONS) {
+        handDrawingUtils.drawConnectors(landmarks, HL.HAND_CONNECTIONS, { color: 'rgba(37,99,235,0.6)', lineWidth: 2 });
+        handDrawingUtils.drawLandmarks(landmarks, { color: 'rgba(37,99,235,0.9)', radius: 3 });
+      } else {
+        // Manual fallback if DrawingUtils unavailable.
+        ctx.strokeStyle = 'rgba(37,99,235,0.6)'; ctx.lineWidth = 2;
+        for(const lm of landmarks) {
+          ctx.beginPath();
+          ctx.arc(lm.x * canvas.width, lm.y * canvas.height, 3, 0, 2 * Math.PI);
+          ctx.fillStyle = 'rgba(37,99,235,0.9)'; ctx.fill();
+        }
+      }
       const tips = [4, 8, 12, 16, 20];
       tips.forEach(i => {
         const lm = landmarks[i];
@@ -2602,322 +2885,455 @@ function onHandResults(results) {
       });
     }
 
-    detectSimpleGestures(results.multiHandLandmarks, results.multiHandedness);
+    // Cache the first hand's normalized vector for the Teach-mode capture button.
+    const handedness0 = (result.handedness && result.handedness[0] && result.handedness[0][0])
+      ? result.handedness[0][0].categoryName : 'Right';
+    lastCapturedVector = normalizeLandmarks(hands[0], handedness0);
+
+    recognizeHands(result);
   } else {
-    statusEl.className = 'hand-status';
-    statusEl.innerHTML = '<div class="dot"></div>Scanning for hands...';
-    countEl.classList.remove('visible');
+    lastCapturedVector = null;
+    if(statusEl){
+      statusEl.className = 'hand-status';
+      statusEl.innerHTML = '<div class="dot"></div>Scanning for hands...';
+    }
+    if(countEl) countEl.classList.remove('visible');
   }
 }
 
-// ===== ASL RECOGNITION ENGINE (fingerpose-style landmark classifier) =====
-// Analyzes finger curl, direction, and relative positions from MediaPipe 21-landmark hand model
-// Recognizes: 26 ASL alphabet letters + common medical/communication gestures
+// ===== ASL RECOGNITION ENGINE (TensorFlow.js MLP over normalized landmarks) =====
+// The hand-crafted rule tables were removed. Recognition is now a trained classifier:
+//   1) MediaPipe Tasks HandLandmarker -> 21 image-normalized (x,y,z) landmarks/hand
+//   2) normalizeLandmarks() -> 42-length wrist-relative, scale-normalized, hand-canonicalized vector
+//   3) tf.js MLP -> softmax over ASL_CLASSES
+//   4) temporal smoothing + confidence threshold -> stable detection
+//
+// Feature normalization is the kinivi (Apache-2.0) recipe, ported exactly:
+//   - take 21 (x,y) pairs
+//   - subtract landmark 0 (wrist) from every point  (translation invariance)
+//   - flatten 21x2 -> 42
+//   - divide every value by the max absolute value  (scale invariance)
+//   - mirror LEFT hands to a canonical right hand (flip x sign on relative coords)
 
-// Finger curl classification from landmarks
-const CURL = { NONE: 0, HALF: 1, FULL: 2 };
-const DIR = { UP: 0, DOWN: 1, LEFT: 2, RIGHT: 3, DIAG_UP_L: 4, DIAG_UP_R: 5, DIAG_DOWN_L: 6, DIAG_DOWN_R: 7 };
+function normalizeLandmarks(landmarks, handednessLabel) {
+  // landmarks: array of 21 {x,y,z} in [0,1]. handednessLabel: 'Left' | 'Right'.
+  // Build wrist-relative (x,y) pairs.
+  const wrist = landmarks[0];
+  const flipX = (handednessLabel === 'Left') ? -1 : 1; // canonicalize lefties to a right hand
+  const vec = new Array(42);
+  for(let i = 0; i < 21; i++) {
+    let rx = (landmarks[i].x - wrist.x) * flipX;
+    let ry = (landmarks[i].y - wrist.y);
+    vec[i*2]   = rx;
+    vec[i*2+1] = ry;
+  }
+  // Scale invariance: divide by max absolute value across the whole 42-vector.
+  let maxAbs = 0;
+  for(let i = 0; i < 42; i++) { const a = Math.abs(vec[i]); if(a > maxAbs) maxAbs = a; }
+  if(maxAbs > 1e-6) { for(let i = 0; i < 42; i++) vec[i] = vec[i] / maxAbs; }
+  return vec;
+}
 
-function getFingerCurl(lm, finger) {
-  // finger: 'thumb'=0, 'index'=1, 'middle'=2, 'ring'=3, 'pinky'=4
-  const bases = [[1,2,3,4],[5,6,7,8],[9,10,11,12],[13,14,15,16],[17,18,19,20]];
-  const pts = bases[finger];
-  const mcp = lm[pts[0]], pip = lm[pts[1]], dip = lm[pts[2]], tip = lm[pts[3]];
+// ----- Classifier + teach-mode state -----
+let aslModel = null;                 // tf.js MLP (LayersModel) once trained/loaded
+let modelReady = false;              // true when aslModel is usable for inference
+let usingBaseModel = false;          // true when the bundled pretrained A–Y letter model is active
+let activeLabels = ASL_CLASSES;      // label list matching the ACTIVE model's softmax outputs
+const BASE_MODEL_URL = './model/model.json';   // bundled pretrained fingerspelling model (A–Y)
+let lastCapturedVector = null;       // most recent normalized 42-vec (for Teach capture)
+let teachSamples = {};               // { className: [ [42 floats], ... ] }
+let teachClassIndex = 0;             // currently selected class in the Teach stepper
+let teachAutoTimer = null;           // hold-to-auto-capture interval
+const SMOOTH_WINDOW = 6;             // frames of temporal smoothing
+const CONF_THRESHOLD = 0.7;          // min confidence to accept a class
+let predHistory = [];                // recent {cls, conf} for smoothing
 
-  if(finger === 0) {
-    // Thumb: use x-distance from base
-    const dist = Math.sqrt(Math.pow(tip.x-mcp.x,2)+Math.pow(tip.y-mcp.y,2));
-    const baseLen = Math.sqrt(Math.pow(dip.x-mcp.x,2)+Math.pow(dip.y-mcp.y,2));
-    if(dist > baseLen * 1.1) return CURL.NONE;
-    if(dist > baseLen * 0.7) return CURL.HALF;
-    return CURL.FULL;
+const SAMPLES_LS_KEY = 'signbridge-asl-samples';
+const MODEL_IDB_URL = 'indexeddb://signbridge-asl';
+
+ASL_CLASSES.forEach(c => { teachSamples[c] = []; });
+
+// ===== TEMPORAL SMOOTHING =====
+// Majority vote over the last SMOOTH_WINDOW frames, averaging confidence of the winner.
+function smoothPrediction(cls, conf) {
+  predHistory.push({ cls, conf });
+  if(predHistory.length > SMOOTH_WINDOW) predHistory.shift();
+  const counts = {}, confSum = {};
+  for(const p of predHistory) {
+    counts[p.cls] = (counts[p.cls] || 0) + 1;
+    confSum[p.cls] = (confSum[p.cls] || 0) + p.conf;
+  }
+  let bestCls = null, bestCount = 0;
+  for(const k in counts) { if(counts[k] > bestCount) { bestCount = counts[k]; bestCls = k; } }
+  // Require the winner to dominate at least half the window.
+  if(bestCls === null || bestCount < Math.ceil(SMOOTH_WINDOW / 2)) return null;
+  return { cls: bestCls, conf: confSum[bestCls] / counts[bestCls] };
+}
+
+// ===== INFERENCE (replaces detectSimpleGestures) =====
+// Runs the trained MLP on the FIRST detected hand, smooths, thresholds, then maps
+// the predicted class onto the SAME showDetection({...}) contract the old code used.
+function recognizeHands(result) {
+  if(!cameraActive) return;
+  if(!modelReady || !aslModel) return; // no model yet -> Teach panel prompts the user
+  const hands = (result && result.landmarks) || [];
+  if(hands.length === 0) return;
+
+  const handednessLabel = (result.handedness && result.handedness[0] && result.handedness[0][0])
+    ? result.handedness[0][0].categoryName : 'Right';
+  // normalizeLandmarks already canonicalizes handedness (MediaPipe "Left" hands are flipped
+  // to a right-hand frame), so a single-orientation prediction is correct for either hand.
+  const vec = normalizeLandmarks(hands[0], handednessLabel);
+  const nClasses = activeLabels.length;
+
+  let probs;
+  try {
+    probs = tf.tidy(() => {
+      const out = aslModel.predict(tf.tensor2d([vec], [1, 42]));
+      return out.dataSync();     // length nClasses
+    });
+  } catch(e) { return; }
+
+  let topIdx = 0, topProb = 0;
+  for(let i = 0; i < nClasses; i++) { if(probs[i] > topProb) { topProb = probs[i]; topIdx = i; } }
+  const rawCls = activeLabels[topIdx];
+
+  // Temporal smoothing.
+  const smoothed = smoothPrediction(rawCls, topProb);
+  if(!smoothed) return;
+  if(smoothed.cls === 'NONE') { spellingBuffer = ''; return; }
+  if(smoothed.conf < CONF_THRESHOLD) return;
+
+  // Debounce so we don't spam showDetection every frame.
+  const now = Date.now();
+  if(now - (recognizeHands._lastDetect || 0) < 350) return;
+
+  const cls = smoothed.cls;
+  const conf = smoothed.conf;
+  let detected = null;
+
+  if(ASL_GESTURES_LIST.includes(cls)) {
+    // ---- Gesture class ----
+    const name = GESTURE_MEANING[cls] || cls.replace('_', ' ');
+    detected = {
+      sign: name,
+      meaning: `ASL Sign: "${name}" (${Math.round(conf*100)}% match)`,
+      isGesture: true,
+      confidence: conf
+    };
+    spellingBuffer = '';   // gestures reset the fingerspelling buffer
+  } else {
+    // ---- Letter class: preserve the existing fingerspelling buffer logic ----
+    const letter = cls;
+    const pct = Math.round(conf * 100);
+
+    // Same-letter hold guard (1200ms) — don't re-append while held.
+    if(letter === lastLetter && (now - lastLetterTime) < 1200) {
+      recognizeHands._lastDetect = now;
+      return;
+    }
+    lastLetter = letter;
+    lastLetterTime = now;
+    spellingBuffer += letter;
+
+    // 2s word-completion timeout -> match to perioperative command.
+    clearTimeout(spellingTimeout);
+    spellingTimeout = setTimeout(() => {
+      if(spellingBuffer.length > 1) {
+        const cmdMatch = matchSpellingToCommand(spellingBuffer);
+        if(cmdMatch) {
+          showDetection({
+            sign: `Spelled "${spellingBuffer}" → "${cmdMatch.cmd}"`,
+            meaning: `Fingerspelled "${spellingBuffer}" matched command: "${cmdMatch.cmd}" (${cmdMatch.score}% match)`,
+            isSpelling: true,
+            commandMatch: cmdMatch
+          });
+          setTimeout(() => showASLSign(cmdMatch.cmd), 800);
+        } else {
+          showDetection({
+            sign: `Spelled: "${spellingBuffer}"`,
+            meaning: `Fingerspelled word: "${spellingBuffer}"`,
+            isSpelling: true
+          });
+        }
+      }
+      spellingBuffer = '';
+      lastLetter = '';
+    }, 2000);
+
+    detected = {
+      sign: `ASL Letter: ${letter} (${pct}%)`,
+      meaning: `ASL Fingerspell: "${letter}" — Buffer: "${spellingBuffer}"`,
+      isLetter: true,
+      confidence: conf
+    };
   }
 
-  // For fingers: compare tip-to-mcp distance vs pip-to-mcp distance
-  const tipToMcp = Math.sqrt(Math.pow(tip.x-mcp.x,2)+Math.pow(tip.y-mcp.y,2));
-  const pipToMcp = Math.sqrt(Math.pow(pip.x-mcp.x,2)+Math.pow(pip.y-mcp.y,2));
-
-  // Also check if tip is below (curled under) pip
-  const tipBelowPip = tip.y > pip.y;
-  const tipBelowDip = tip.y > dip.y;
-
-  if(tipToMcp > pipToMcp * 1.3 && !tipBelowPip) return CURL.NONE;
-  if(tipBelowDip && tipToMcp < pipToMcp * 0.9) return CURL.FULL;
-  return CURL.HALF;
-}
-
-function getFingerDir(lm, finger) {
-  const tips = [4,8,12,16,20];
-  const bases = [2,5,9,13,17];
-  const tip = lm[tips[finger]], base = lm[bases[finger]];
-  const dx = tip.x - base.x, dy = tip.y - base.y;
-  const angle = Math.atan2(-dy, dx) * 180 / Math.PI; // -dy because y is inverted
-
-  if(angle > 60 && angle <= 120) return DIR.UP;
-  if(angle > 120 || angle <= -120) return DIR.LEFT;
-  if(angle > -120 && angle <= -60) return DIR.DOWN;
-  if(angle > -60 && angle <= 0) return DIR.RIGHT;
-  if(angle > 0 && angle <= 60) return DIR.RIGHT;
-  return DIR.UP;
-}
-
-function dist2D(a, b) {
-  return Math.sqrt(Math.pow(a.x-b.x,2)+Math.pow(a.y-b.y,2));
-}
-
-function tipsTouching(lm, f1tip, f2tip, threshold) {
-  return dist2D(lm[f1tip], lm[f2tip]) < (threshold || 0.06);
-}
-
-// Analyze full hand pose
-function analyzeHand(lm) {
-  const curls = [0,1,2,3,4].map(f => getFingerCurl(lm, f));
-  const dirs = [0,1,2,3,4].map(f => getFingerDir(lm, f));
-  const thumbTip = lm[4], indexTip = lm[8], middleTip = lm[12], ringTip = lm[16], pinkyTip = lm[20];
-  const wrist = lm[0], indexMcp = lm[5], pinkyMcp = lm[17], middleMcp = lm[9];
-
-  // Palm facing camera? Check if wrist is below fingertips and fingers face up
-  const palmUp = wrist.y > indexMcp.y;
-  // Hand orientation: horizontal vs vertical
-  const handWidth = Math.abs(indexMcp.x - pinkyMcp.x);
-  const handHeight = Math.abs(wrist.y - middleMcp.y);
-  const isHorizontal = handWidth > handHeight * 0.8;
-
-  return { curls, dirs, thumbTip, indexTip, middleTip, ringTip, pinkyTip, wrist, indexMcp, pinkyMcp, middleMcp, palmUp, isHorizontal, lm };
-}
-
-// ASL Letter Definitions — each returns { match: boolean, confidence: number }
-const ASL_LETTERS = {
-  'A': (h) => {
-    // Fist with thumb alongside (not tucked)
-    const allCurled = h.curls[1]===CURL.FULL && h.curls[2]===CURL.FULL && h.curls[3]===CURL.FULL && h.curls[4]===CURL.FULL;
-    const thumbOut = h.curls[0] <= CURL.HALF;
-    const thumbBeside = h.thumbTip.y <= h.lm[5].y; // thumb tip near or above index mcp
-    return allCurled && thumbOut && thumbBeside ? 0.85 : 0;
-  },
-  'B': (h) => {
-    // All 4 fingers straight up, thumb curled across palm
-    const allUp = h.curls[1]===CURL.NONE && h.curls[2]===CURL.NONE && h.curls[3]===CURL.NONE && h.curls[4]===CURL.NONE;
-    const thumbIn = h.curls[0] >= CURL.HALF;
-    const fingersClose = dist2D(h.indexTip, h.pinkyTip) < 0.15;
-    return allUp && thumbIn && fingersClose ? 0.88 : 0;
-  },
-  'C': (h) => {
-    // All fingers half-curled forming C shape
-    const allHalf = h.curls[1]===CURL.HALF && h.curls[2]===CURL.HALF && h.curls[3]===CURL.HALF && h.curls[4]===CURL.HALF;
-    const thumbHalf = h.curls[0] <= CURL.HALF;
-    const gapExists = dist2D(h.thumbTip, h.indexTip) > 0.06;
-    return allHalf && thumbHalf && gapExists ? 0.82 : 0;
-  },
-  'D': (h) => {
-    // Index up, others curled, thumb touches middle finger
-    const indexUp = h.curls[1]===CURL.NONE;
-    const othersCurled = h.curls[2]>=CURL.HALF && h.curls[3]>=CURL.HALF && h.curls[4]>=CURL.HALF;
-    const thumbTouchMid = tipsTouching(h.lm, 4, 12, 0.08) || h.curls[0]>=CURL.HALF;
-    return indexUp && othersCurled && thumbTouchMid ? 0.84 : 0;
-  },
-  'E': (h) => {
-    // All fingers curled tightly, thumb curled in front
-    const allFull = h.curls[1]>=CURL.HALF && h.curls[2]>=CURL.HALF && h.curls[3]>=CURL.HALF && h.curls[4]>=CURL.HALF;
-    const thumbCurled = h.curls[0] >= CURL.HALF;
-    const thumbInFront = h.thumbTip.y > h.lm[6].y; // thumb below index pip
-    return allFull && thumbCurled && thumbInFront ? 0.78 : 0;
-  },
-  'F': (h) => {
-    // Thumb and index touching, other 3 fingers up
-    const thumbIndexTouch = tipsTouching(h.lm, 4, 8, 0.06);
-    const othersUp = h.curls[2]===CURL.NONE && h.curls[3]===CURL.NONE && h.curls[4]===CURL.NONE;
-    return thumbIndexTouch && othersUp ? 0.88 : 0;
-  },
-  'G': (h) => {
-    // Index pointing sideways, thumb out, others curled, hand horizontal
-    const indexOut = h.curls[1]===CURL.NONE;
-    const thumbOut = h.curls[0]===CURL.NONE;
-    const othersCurled = h.curls[2]>=CURL.HALF && h.curls[3]>=CURL.HALF && h.curls[4]>=CURL.HALF;
-    return indexOut && thumbOut && othersCurled && h.isHorizontal ? 0.80 : 0;
-  },
-  'H': (h) => {
-    // Index + middle pointing sideways, hand horizontal
-    const indexOut = h.curls[1]===CURL.NONE;
-    const middleOut = h.curls[2]===CURL.NONE;
-    const othersCurled = h.curls[3]>=CURL.HALF && h.curls[4]>=CURL.HALF;
-    return indexOut && middleOut && othersCurled && h.isHorizontal ? 0.82 : 0;
-  },
-  'I': (h) => {
-    // Only pinky up, all others curled
-    const pinkyUp = h.curls[4]===CURL.NONE;
-    const othersCurled = h.curls[0]>=CURL.HALF && h.curls[1]>=CURL.FULL && h.curls[2]>=CURL.FULL && h.curls[3]>=CURL.FULL;
-    return pinkyUp && othersCurled ? 0.86 : 0;
-  },
-  'K': (h) => {
-    // Index up, middle up angled, thumb between them
-    const indexUp = h.curls[1]===CURL.NONE;
-    const middleUp = h.curls[2]<=CURL.HALF;
-    const othersCurled = h.curls[3]>=CURL.HALF && h.curls[4]>=CURL.HALF;
-    const thumbBetween = h.thumbTip.x > Math.min(h.indexTip.x, h.middleTip.x) - 0.03;
-    return indexUp && middleUp && othersCurled && thumbBetween ? 0.78 : 0;
-  },
-  'L': (h) => {
-    // L shape: index up, thumb out to side, others curled
-    const indexUp = h.curls[1]===CURL.NONE && h.dirs[1]===DIR.UP;
-    const thumbOut = h.curls[0]===CURL.NONE;
-    const othersCurled = h.curls[2]>=CURL.FULL && h.curls[3]>=CURL.FULL && h.curls[4]>=CURL.FULL;
-    const perpendicular = Math.abs(h.indexTip.x - h.lm[5].x) < 0.08; // index goes straight up
-    return indexUp && thumbOut && othersCurled ? 0.88 : 0;
-  },
-  'M': (h) => {
-    // Three fingers (index, middle, ring) over thumb, pinky curled
-    const threeCurled = h.curls[1]>=CURL.HALF && h.curls[2]>=CURL.HALF && h.curls[3]>=CURL.HALF;
-    const pinkyCurled = h.curls[4]>=CURL.FULL;
-    const thumbUnder = h.thumbTip.y > h.lm[10].y;
-    return threeCurled && pinkyCurled && thumbUnder ? 0.72 : 0;
-  },
-  'N': (h) => {
-    // Two fingers (index, middle) over thumb, ring+pinky curled
-    const twoCurled = h.curls[1]>=CURL.HALF && h.curls[2]>=CURL.HALF;
-    const othersCurled = h.curls[3]>=CURL.FULL && h.curls[4]>=CURL.FULL;
-    const thumbBetween = h.thumbTip.y > h.lm[10].y;
-    return twoCurled && othersCurled && thumbBetween ? 0.70 : 0;
-  },
-  'O': (h) => {
-    // All fingertips touching thumb forming O
-    const allHalf = h.curls[1]>=CURL.HALF && h.curls[2]>=CURL.HALF && h.curls[3]>=CURL.HALF && h.curls[4]>=CURL.HALF;
-    const thumbTouch = tipsTouching(h.lm, 4, 8, 0.08);
-    return allHalf && thumbTouch ? 0.82 : 0;
-  },
-  'P': (h) => {
-    // Like K but pointing down
-    const indexDown = h.curls[1]===CURL.NONE;
-    const middleDown = h.curls[2]<=CURL.HALF;
-    const othersCurled = h.curls[3]>=CURL.HALF && h.curls[4]>=CURL.HALF;
-    const pointingDown = h.indexTip.y > h.lm[5].y;
-    return indexDown && middleDown && othersCurled && pointingDown ? 0.76 : 0;
-  },
-  'Q': (h) => {
-    // Like G but pointing down — index + thumb down, others curled
-    const indexDown = h.curls[1]===CURL.NONE && h.indexTip.y > h.lm[5].y;
-    const thumbDown = h.curls[0]===CURL.NONE;
-    const othersCurled = h.curls[2]>=CURL.HALF && h.curls[3]>=CURL.HALF && h.curls[4]>=CURL.HALF;
-    return indexDown && thumbDown && othersCurled ? 0.74 : 0;
-  },
-  'R': (h) => {
-    // Index and middle crossed, others curled
-    const indexUp = h.curls[1]===CURL.NONE;
-    const middleUp = h.curls[2]===CURL.NONE;
-    const othersCurled = h.curls[3]>=CURL.HALF && h.curls[4]>=CURL.HALF;
-    const crossed = Math.abs(h.indexTip.x - h.middleTip.x) < 0.03;
-    return indexUp && middleUp && othersCurled && crossed ? 0.80 : 0;
-  },
-  'S': (h) => {
-    // Fist with thumb over fingers (across front)
-    const allCurled = h.curls[1]===CURL.FULL && h.curls[2]===CURL.FULL && h.curls[3]===CURL.FULL && h.curls[4]===CURL.FULL;
-    const thumbCurled = h.curls[0] >= CURL.HALF;
-    const thumbInFront = h.thumbTip.y >= h.lm[6].y;
-    return allCurled && thumbCurled ? 0.76 : 0;
-  },
-  'T': (h) => {
-    // Fist with thumb between index and middle fingers
-    const allCurled = h.curls[1]>=CURL.FULL && h.curls[2]>=CURL.FULL && h.curls[3]>=CURL.FULL && h.curls[4]>=CURL.FULL;
-    const thumbBetween = h.curls[0]<=CURL.HALF && h.thumbTip.x > Math.min(h.lm[5].x, h.lm[9].x);
-    return allCurled && thumbBetween ? 0.72 : 0;
-  },
-  'U': (h) => {
-    // Index + middle up together, others curled
-    const indexUp = h.curls[1]===CURL.NONE;
-    const middleUp = h.curls[2]===CURL.NONE;
-    const othersCurled = h.curls[3]>=CURL.HALF && h.curls[4]>=CURL.HALF;
-    const close = dist2D(h.indexTip, h.middleTip) < 0.06;
-    const vertical = !h.isHorizontal;
-    return indexUp && middleUp && othersCurled && close && vertical ? 0.84 : 0;
-  },
-  'V': (h) => {
-    // Index + middle up spread (V/peace), others curled
-    const indexUp = h.curls[1]===CURL.NONE;
-    const middleUp = h.curls[2]===CURL.NONE;
-    const othersCurled = h.curls[3]>=CURL.HALF && h.curls[4]>=CURL.HALF;
-    const spread = dist2D(h.indexTip, h.middleTip) > 0.06;
-    return indexUp && middleUp && othersCurled && spread ? 0.86 : 0;
-  },
-  'W': (h) => {
-    // Index + middle + ring up, others curled
-    const threeUp = h.curls[1]===CURL.NONE && h.curls[2]===CURL.NONE && h.curls[3]===CURL.NONE;
-    const pinkyCurled = h.curls[4]>=CURL.HALF;
-    const thumbCurled = h.curls[0]>=CURL.HALF;
-    return threeUp && pinkyCurled && thumbCurled ? 0.86 : 0;
-  },
-  'X': (h) => {
-    // Index hooked (half curl), others curled
-    const indexHook = h.curls[1]===CURL.HALF;
-    const othersCurled = h.curls[2]>=CURL.FULL && h.curls[3]>=CURL.FULL && h.curls[4]>=CURL.FULL;
-    return indexHook && othersCurled ? 0.78 : 0;
-  },
-  'Y': (h) => {
-    // Thumb + pinky out, others curled (hang loose)
-    const thumbOut = h.curls[0]===CURL.NONE;
-    const pinkyOut = h.curls[4]===CURL.NONE;
-    const middleCurled = h.curls[1]>=CURL.FULL && h.curls[2]>=CURL.FULL && h.curls[3]>=CURL.FULL;
-    return thumbOut && pinkyOut && middleCurled ? 0.88 : 0;
-  },
-};
-
-// Medical / Communication gestures (higher priority)
-const MEDICAL_GESTURES = {
-  'HELP': (h) => {
-    // Flat hand on fist (simplified: one hand fist, thumb up on open palm)
-    // For single hand: thumb up with loose fist
-    const thumbUp = h.curls[0]===CURL.NONE && h.thumbTip.y < h.lm[2].y;
-    const othersCurled = h.curls[1]>=CURL.HALF && h.curls[2]>=CURL.HALF && h.curls[3]>=CURL.HALF && h.curls[4]>=CURL.HALF;
-    const thumbVertical = h.dirs[0]===DIR.UP;
-    return thumbUp && othersCurled && thumbVertical ? 0.82 : 0;
-  },
-  'YES': (h) => {
-    // Fist nodding (static: just fist / "S" handshape)
-    const allCurled = h.curls[1]>=CURL.FULL && h.curls[2]>=CURL.FULL && h.curls[3]>=CURL.FULL && h.curls[4]>=CURL.FULL;
-    const thumbCurled = h.curls[0]>=CURL.HALF;
-    return allCurled && thumbCurled ? 0.70 : 0;
-  },
-  'NO': (h) => {
-    // Index + middle snap to thumb (static: index+middle+thumb extended, close)
-    const indexUp = h.curls[1]<=CURL.HALF;
-    const middleUp = h.curls[2]<=CURL.HALF;
-    const thumbOut = h.curls[0]<=CURL.HALF;
-    const othersCurled = h.curls[3]>=CURL.HALF && h.curls[4]>=CURL.HALF;
-    const tipsClose = tipsTouching(h.lm, 4, 8, 0.07) || tipsTouching(h.lm, 4, 12, 0.07);
-    return indexUp && middleUp && thumbOut && othersCurled && tipsClose ? 0.78 : 0;
-  },
-  'PAIN': (h) => {
-    // Both index fingers pointing at each other (single hand: index pointing)
-    const indexUp = h.curls[1]===CURL.NONE;
-    const othersCurled = h.curls[2]>=CURL.FULL && h.curls[3]>=CURL.FULL && h.curls[4]>=CURL.FULL;
-    const thumbCurled = h.curls[0]>=CURL.HALF;
-    return indexUp && othersCurled && thumbCurled ? 0.76 : 0;
-  },
-  'STOP': (h) => {
-    // All fingers up, palm out — open hand
-    const allUp = h.curls[1]===CURL.NONE && h.curls[2]===CURL.NONE && h.curls[3]===CURL.NONE && h.curls[4]===CURL.NONE;
-    const thumbOut = h.curls[0]<=CURL.HALF;
-    return allUp && thumbOut ? 0.85 : 0;
-  },
-  'THANK YOU': (h) => {
-    // Flat hand from chin out (static: open hand, palm facing forward)
-    const allUp = h.curls[1]===CURL.NONE && h.curls[2]===CURL.NONE && h.curls[3]===CURL.NONE && h.curls[4]===CURL.NONE;
-    const thumbOut = h.curls[0]<=CURL.HALF;
-    const fingersClose = dist2D(h.indexTip, h.pinkyTip) < 0.12;
-    return allUp && thumbOut && fingersClose ? 0.80 : 0;
-  },
-  'OK / UNDERSTAND': (h) => {
-    // Thumb-index circle, other fingers up (F handshape = "OK" in many contexts)
-    const thumbIndexTouch = tipsTouching(h.lm, 4, 8, 0.06);
-    const othersUp = h.curls[2]===CURL.NONE && h.curls[3]===CURL.NONE && h.curls[4]===CURL.NONE;
-    return thumbIndexTouch && othersUp ? 0.88 : 0;
-  },
-  'WAIT': (h) => {
-    // Open hand, fingers wiggling (static: open hand, fingers spread)
-    const allUp = h.curls[1]===CURL.NONE && h.curls[2]===CURL.NONE && h.curls[3]===CURL.NONE && h.curls[4]===CURL.NONE;
-    const spread = dist2D(h.indexTip, h.pinkyTip) > 0.15;
-    return allUp && spread ? 0.78 : 0;
+  if(detected) {
+    recognizeHands._lastDetect = now;
+    showDetection(detected);
   }
-};
+}
+
+// ===== TEACH / TRAIN MODE =====
+function toggleTeachPanel() {
+  const card = document.getElementById('teachCard');
+  const btn = document.getElementById('teachToggle');
+  if(!card) return;
+  card.classList.toggle('expanded');
+  if(btn) btn.textContent = card.classList.contains('expanded') ? 'Close' : 'Open';
+  if(card.classList.contains('expanded')) renderTeachUI();
+}
+
+function currentTeachClass() { return ASL_CLASSES[teachClassIndex]; }
+
+function teachNextClass() { teachClassIndex = (teachClassIndex + 1) % NUM_CLASSES; renderTeachUI(); }
+function teachPrevClass() { teachClassIndex = (teachClassIndex - 1 + NUM_CLASSES) % NUM_CLASSES; renderTeachUI(); }
+function teachSelectClass(i) { teachClassIndex = i; renderTeachUI(); }
+
+function totalSamples() {
+  let n = 0; for(const c of ASL_CLASSES) n += (teachSamples[c] ? teachSamples[c].length : 0); return n;
+}
+
+function renderTeachUI() {
+  const disp = document.getElementById('teachClassDisplay');
+  const badge = document.getElementById('teachCountBadge');
+  const list = document.getElementById('teachClassList');
+  const cls = currentTeachClass();
+  if(disp) disp.textContent = (cls === 'NONE') ? 'NONE (no sign)' : (GESTURE_MEANING[cls] || cls);
+  if(badge) badge.textContent = `${teachSamples[cls].length} samples · total ${totalSamples()}`;
+  if(list) {
+    list.innerHTML = '';
+    ASL_CLASSES.forEach((c, i) => {
+      const chip = document.createElement('span');
+      chip.className = 'teach-chip' + (teachSamples[c].length > 0 ? ' has-samples' : '') + (i === teachClassIndex ? ' current' : '');
+      chip.textContent = `${(GESTURE_MEANING[c] ? c.replace('_',' ') : c)} ${teachSamples[c].length || ''}`.trim();
+      chip.onclick = () => teachSelectClass(i);
+      list.appendChild(chip);
+    });
+  }
+  updateTeachStatus();
+}
+
+function updateTeachStatus(msg, kind) {
+  const el = document.getElementById('teachStatus');
+  if(!el) return;
+  el.className = 'teach-status' + (kind ? (' ' + kind) : '');
+  if(msg) { el.textContent = msg; return; }
+  if(modelReady) el.textContent = `Model loaded and active — inference is running. (${totalSamples()} training samples on device.)`;
+  else if(totalSamples() > 0) el.textContent = `${totalSamples()} samples collected. Train the model when you have ~30+ per class (incl. NONE).`;
+  else el.textContent = 'No model yet — collect samples for each sign, then train.';
+}
+
+function teachCapture() {
+  if(!cameraActive) { updateTeachStatus('Start the camera first (tap the video above).', 'warn'); return; }
+  if(!lastCapturedVector) { updateTeachStatus('No hand detected — show your hand to the camera.', 'warn'); return; }
+  const cls = currentTeachClass();
+  teachSamples[cls].push(lastCapturedVector.slice());
+  persistSamples();
+  renderTeachUI();
+}
+
+function teachAutoStart() {
+  if(teachAutoTimer) return;
+  // ~5 captures/sec while held.
+  teachAutoTimer = setInterval(() => {
+    if(cameraActive && lastCapturedVector) {
+      teachSamples[currentTeachClass()].push(lastCapturedVector.slice());
+      renderTeachUI();
+    }
+  }, 200);
+  const b = document.getElementById('teachAutoBtn'); if(b) b.classList.add('active');
+}
+function teachAutoStop() {
+  if(teachAutoTimer) { clearInterval(teachAutoTimer); teachAutoTimer = null; persistSamples(); }
+  const b = document.getElementById('teachAutoBtn'); if(b) b.classList.remove('active');
+}
+
+function persistSamples() {
+  try { localStorage.setItem(SAMPLES_LS_KEY, JSON.stringify(teachSamples)); } catch(e) { /* quota */ }
+}
+function loadSamplesFromStorage() {
+  try {
+    const raw = localStorage.getItem(SAMPLES_LS_KEY);
+    if(raw) {
+      const obj = JSON.parse(raw);
+      ASL_CLASSES.forEach(c => { teachSamples[c] = Array.isArray(obj[c]) ? obj[c] : []; });
+    }
+  } catch(e) { /* ignore */ }
+}
+
+function teachClearSamples() {
+  ASL_CLASSES.forEach(c => { teachSamples[c] = []; });
+  persistSamples();
+  predHistory = [];
+  renderTeachUI();
+  updateTeachStatus('Samples cleared.', 'warn');
+}
+
+// ----- Build + train the MLP -----
+function buildModel() {
+  const m = tf.sequential();
+  m.add(tf.layers.dropout({ rate: 0.2, inputShape: [42] }));
+  m.add(tf.layers.dense({ units: 64, activation: 'relu' }));
+  m.add(tf.layers.dropout({ rate: 0.4 }));
+  m.add(tf.layers.dense({ units: 32, activation: 'relu' }));
+  m.add(tf.layers.dense({ units: NUM_CLASSES, activation: 'softmax' }));
+  m.compile({ optimizer: tf.train.adam(), loss: 'categoricalCrossentropy', metrics: ['accuracy'] });
+  return m;
+}
+
+async function teachTrain() {
+  const classesWithData = ASL_CLASSES.filter(c => teachSamples[c].length > 0);
+  if(classesWithData.length < 2) {
+    updateTeachStatus('Collect samples for at least 2 classes before training.', 'warn');
+    return;
+  }
+  // Assemble dataset.
+  const xs = [], ys = [];
+  ASL_CLASSES.forEach((c, idx) => {
+    for(const v of teachSamples[c]) {
+      if(v && v.length === 42) {
+        xs.push(v);
+        const oneHot = new Array(NUM_CLASSES).fill(0); oneHot[idx] = 1;
+        ys.push(oneHot);
+      }
+    }
+  });
+  if(xs.length < 8) { updateTeachStatus('Not enough samples to train (need ~8+).', 'warn'); return; }
+
+  const prog = document.getElementById('teachProgress');
+  if(prog) { prog.classList.add('visible'); prog.textContent = 'Preparing…'; }
+
+  // Dispose any previous in-memory model.
+  if(aslModel) { try { aslModel.dispose(); } catch(e) {} aslModel = null; modelReady = false; }
+  const model = buildModel();
+
+  const xT = tf.tensor2d(xs, [xs.length, 42]);
+  const yT = tf.tensor2d(ys, [ys.length, NUM_CLASSES]);
+
+  try {
+    await model.fit(xT, yT, {
+      epochs: 60,
+      batchSize: 16,
+      shuffle: true,
+      validationSplit: xs.length >= 20 ? 0.2 : 0,   // live accuracy readout when enough data
+      callbacks: {
+        onEpochEnd: (epoch, logs) => {
+          if(prog) {
+            const acc = logs.acc != null ? logs.acc : logs.accuracy;
+            const vacc = logs.val_acc != null ? logs.val_acc : logs.val_accuracy;
+            prog.textContent =
+              `epoch ${epoch+1}/60  loss ${logs.loss.toFixed(3)}` +
+              (acc != null ? `  acc ${(acc*100).toFixed(1)}%` : '') +
+              (vacc != null ? `  val_acc ${(vacc*100).toFixed(1)}%` : '');
+          }
+        }
+      }
+    });
+    aslModel = model;
+    usingBaseModel = false; activeLabels = ASL_CLASSES;   // user model covers all 33 classes
+    modelReady = true;
+    predHistory = [];
+    await model.save(MODEL_IDB_URL);   // persist to IndexedDB
+    if(prog) prog.textContent += '\nTrained & saved to this device. Inference is now active.';
+    updateTeachStatus(`Model trained on ${xs.length} samples across ${classesWithData.length} classes — inference active.`, 'ok');
+  } catch(e) {
+    if(prog) prog.textContent = 'Training error: ' + (e && e.message ? e.message : e);
+    updateTeachStatus('Training failed — see progress log.', 'warn');
+  } finally {
+    xT.dispose(); yT.dispose();
+  }
+}
+
+// Load a model on boot. Preference order:
+//   1) a user-trained model in IndexedDB (full 33-class: letters + gestures + NONE)
+//   2) the bundled pretrained base model (24 fingerspelling letters A–Y) so the app
+//      recognizes fingerspelling out of the box with NO training required.
+async function tryLoadSavedModel() {
+  if(modelReady) return;
+  // 1) user-trained model wins (it also covers the medical gestures + NONE).
+  try {
+    const models = await tf.io.listModels();
+    if(models[MODEL_IDB_URL]) {
+      aslModel = await tf.loadLayersModel(MODEL_IDB_URL);
+      usingBaseModel = false; activeLabels = ASL_CLASSES;
+      modelReady = true; predHistory = [];
+      updateTeachStatus();
+      const statusEl = document.getElementById('handStatus');
+      if(statusEl && !cameraActive) statusEl.innerHTML = '<div class="dot"></div>Your trained model loaded — start camera to recognize';
+      return;
+    }
+  } catch(e) { /* no saved model */ }
+  // 2) fall back to the bundled pretrained fingerspelling model.
+  try {
+    const m = await tf.loadLayersModel(BASE_MODEL_URL);
+    let labels = null;
+    try { labels = await (await fetch('./model/labels.json')).json(); } catch(_) {}
+    if(!Array.isArray(labels) || !labels.length) labels = ASL_LETTERS_LIST.slice();
+    aslModel = m; activeLabels = labels; usingBaseModel = true;
+    modelReady = true; predHistory = [];
+    updateTeachStatus('Built-in fingerspelling model active (A–Y). Use the Teach panel to add the medical gestures or improve accuracy.', 'ok');
+    const statusEl = document.getElementById('handStatus');
+    if(statusEl && !cameraActive) statusEl.innerHTML = '<div class="dot"></div>Fingerspelling model ready — start camera to recognize';
+  } catch(e) { /* no bundled model either — Teach panel will prompt to train */ }
+}
+
+function teachUseModel() {
+  if(modelReady) { updateTeachStatus('Model is active — inference is running while the camera is on.', 'ok'); }
+  else { tryLoadSavedModel().then(() => {
+    if(!modelReady) updateTeachStatus('No trained model yet — collect samples and Train first.', 'warn');
+  }); }
+}
+
+async function teachDownloadModel() {
+  if(!aslModel) { updateTeachStatus('No model to download — train first.', 'warn'); return; }
+  try { await aslModel.save('downloads://signbridge-asl-model'); }
+  catch(e) { updateTeachStatus('Download failed: ' + (e.message||e), 'warn'); }
+}
+
+function teachDownloadSamples() {
+  const payload = { classes: ASL_CLASSES, samples: teachSamples, savedAt: new Date().toISOString() };
+  const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'signbridge-asl-samples.json';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function teachImportSamples(evt) {
+  const file = evt.target.files && evt.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const obj = JSON.parse(reader.result);
+      const src = obj.samples || obj; // accept either {samples:{...}} or raw {...}
+      ASL_CLASSES.forEach(c => {
+        if(Array.isArray(src[c])) {
+          // merge (append) imported samples onto existing ones
+          teachSamples[c] = teachSamples[c].concat(src[c].filter(v => Array.isArray(v) && v.length === 42));
+        }
+      });
+      persistSamples();
+      renderTeachUI();
+      updateTeachStatus(`Imported samples (total now ${totalSamples()}). Train to use them.`, 'ok');
+    } catch(e) {
+      updateTeachStatus('Import failed — invalid JSON.', 'warn');
+    }
+  };
+  reader.readAsText(file);
+  evt.target.value = '';
+}
+
+async function teachClearModel() {
+  try { await tf.io.removeModel(MODEL_IDB_URL); } catch(e) { /* none saved */ }
+  if(aslModel) { try { aslModel.dispose(); } catch(e) {} }
+  aslModel = null; modelReady = false; usingBaseModel = false; activeLabels = ASL_CLASSES; predHistory = [];
+  updateTeachStatus('Your trained model was cleared. Reloading the built-in fingerspelling model…', 'warn');
+  tryLoadSavedModel();   // fall back to the bundled base model so fingerspelling still works
+}
 
 // Spelling buffer for fingerspelling mode
 let spellingBuffer = '';
@@ -3037,109 +3453,6 @@ function levenshtein(a, b) {
   return dp[m][n];
 }
 
-function detectSimpleGestures(handLandmarks, handedness) {
-  if(!cameraActive) return;
-  const now = Date.now();
-  if(now - (detectSimpleGestures._lastDetect || 0) < 350) return;
-
-  for(let hi = 0; hi < handLandmarks.length; hi++) {
-    const lm = handLandmarks[hi];
-    const hand = analyzeHand(lm);
-
-    // First check medical gestures (higher priority)
-    let bestGesture = null, bestScore = 0;
-    for(const [name, fn] of Object.entries(MEDICAL_GESTURES)) {
-      const score = fn(hand);
-      if(score > bestScore && score >= 0.75) { bestScore = score; bestGesture = { type: 'gesture', name, score }; }
-    }
-
-    // Then check ASL letters
-    let bestLetter = null, bestLetterScore = 0;
-    for(const [letter, fn] of Object.entries(ASL_LETTERS)) {
-      const score = fn(hand);
-      if(score > bestLetterScore && score >= 0.72) { bestLetterScore = score; bestLetter = { type: 'letter', name: letter, score }; }
-    }
-
-    // Decide: if gesture has high confidence and matches well, show it
-    // Otherwise show letter (fingerspelling mode)
-    let detected = null;
-
-    if(bestGesture && bestGesture.score > 0.82) {
-      // Strong medical gesture
-      detected = {
-        sign: bestGesture.name,
-        meaning: `ASL Sign: "${bestGesture.name}" (${Math.round(bestGesture.score*100)}% match)`,
-        isGesture: true,
-        confidence: bestGesture.score
-      };
-      // Reset spelling buffer on gesture
-      spellingBuffer = '';
-    } else if(bestLetter) {
-      // Fingerspelling mode
-      const letter = bestLetter.name;
-      const conf = Math.round(bestLetter.score * 100);
-
-      // Same letter hold = confirm, new letter = append
-      if(letter === lastLetter && (now - lastLetterTime) < 1200) {
-        // Holding same letter — don't re-add
-        detectSimpleGestures._lastDetect = now;
-        return;
-      }
-
-      lastLetter = letter;
-      lastLetterTime = now;
-      spellingBuffer += letter;
-
-      // Auto-timeout: if no new letter in 2s, treat buffer as complete word
-      // Then try to match against perioperative commands (spelling-to-command bridge)
-      clearTimeout(spellingTimeout);
-      spellingTimeout = setTimeout(() => {
-        if(spellingBuffer.length > 1) {
-          const cmdMatch = matchSpellingToCommand(spellingBuffer);
-          if(cmdMatch) {
-            showDetection({
-              sign: `Spelled "${spellingBuffer}" → "${cmdMatch.cmd}"`,
-              meaning: `Fingerspelled "${spellingBuffer}" matched command: "${cmdMatch.cmd}" (${cmdMatch.score}% match)`,
-              isSpelling: true,
-              commandMatch: cmdMatch
-            });
-            // Auto-trigger the matched command's ASL sign
-            setTimeout(() => showASLSign(cmdMatch.cmd), 800);
-          } else {
-            showDetection({
-              sign: `Spelled: "${spellingBuffer}"`,
-              meaning: `Fingerspelled word: "${spellingBuffer}"`,
-              isSpelling: true
-            });
-          }
-        }
-        spellingBuffer = '';
-        lastLetter = '';
-      }, 2000);
-
-      detected = {
-        sign: `ASL Letter: ${letter} (${conf}%)`,
-        meaning: `ASL Fingerspell: "${letter}" — Buffer: "${spellingBuffer}"`,
-        isLetter: true,
-        confidence: bestLetter.score
-      };
-    } else if(bestGesture) {
-      // Lower confidence gesture
-      detected = {
-        sign: bestGesture.name,
-        meaning: `ASL Sign: "${bestGesture.name}" (${Math.round(bestGesture.score*100)}% match)`,
-        isGesture: true,
-        confidence: bestGesture.score
-      };
-    }
-
-    if(detected) {
-      detectSimpleGestures._lastDetect = now;
-      showDetection(detected);
-      return;
-    }
-  }
-}
 
 function getConfidenceBadge(confidence) {
   if(!confidence) return '';
@@ -3208,19 +3521,17 @@ function togglePatientCamera() {
       video.srcObject = stream;
       overlay.classList.add('hidden');
       cameraActive = true;
-      status.innerHTML = '<div class="dot"></div>Show your hands to communicate';
+      status.innerHTML = modelReady
+        ? '<div class="dot"></div>Show your hands to communicate'
+        : '<div class="dot"></div>Show hands — train a model in the Teach panel to recognize signs';
       addLogEntry('system', 'Camera started — MediaPipe hand tracking active');
 
-      if(!mpHands) initMediaPipeHands();
-      if(mpHands) {
-        patientMpCamera = new Camera(video, {
-          onFrame: async () => {
-            if(mpHands && cameraActive) await mpHands.send({ image: video });
-          },
-          width: 640, height: 480,
-        });
-        patientMpCamera.start();
-      }
+      if(!handLandmarker) initMediaPipeHands();
+      // Start the requestAnimationFrame detect loop once the video has data.
+      _lastVideoTime = -1;
+      const beginLoop = () => { if(cameraActive && rafLoopId === null) rafLoopId = requestAnimationFrame(handDetectLoop); };
+      if(video.readyState >= 2) beginLoop();
+      else video.addEventListener('loadeddata', beginLoop, { once: true });
     })
     .catch(() => {
       status.innerHTML = '<div class="dot"></div>Camera denied — check permissions';
@@ -3228,7 +3539,8 @@ function togglePatientCamera() {
 }
 
 function stopPatientCamera() {
-  if(patientMpCamera) { patientMpCamera.stop(); patientMpCamera = null; }
+  cameraActive = false; // makes the rAF loop self-terminate
+  if(rafLoopId !== null) { cancelAnimationFrame(rafLoopId); rafLoopId = null; }
   const video = document.getElementById('patientCamFeed');
   if(video && video.srcObject) {
     video.srcObject.getTracks().forEach(t => t.stop());
@@ -3713,7 +4025,12 @@ setInterval(refreshConnStatus, 2000);
 // ===== START =====
 init();
 initTTS();
-try { initMediaPipeHands(); } catch(e) { console.log('MediaPipe will init on camera start'); }
+// Restore any previously-collected teach samples, then init the hand model
+// (initMediaPipeHands also attempts to auto-load a saved classifier from IndexedDB).
+loadSamplesFromStorage();
+try { initMediaPipeHands(); } catch(e) { console.log('Hand model will init on camera start'); }
+// Render the Teach UI once (so the class list/counts are correct when opened).
+try { renderTeachUI(); } catch(e) {}
 setTimeout(refreshConnStatus, 500);
 </script>
 

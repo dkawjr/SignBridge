@@ -1,0 +1,33 @@
+{
+  "source": "AkramOM606/American-Sign-Language-Detection (MIT)",
+  "classes": [
+    "A",
+    "B",
+    "C",
+    "D",
+    "E",
+    "F",
+    "G",
+    "H",
+    "I",
+    "K",
+    "L",
+    "M",
+    "N",
+    "O",
+    "P",
+    "Q",
+    "R",
+    "S",
+    "T",
+    "U",
+    "V",
+    "W",
+    "X",
+    "Y"
+  ],
+  "valAccuracy": 0.9510943293571472,
+  "nTrain": 28506,
+  "nVal": 5030,
+  "note": "A-Y fingerspelling (J,Z dropped); mirror-augmented; trained tfjs 4.22.0 webgl; held-out internal val accuracy, NOT live-camera accuracy"
+}
