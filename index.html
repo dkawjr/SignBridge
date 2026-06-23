@@ -1984,6 +1984,27 @@ body {
 .clin-drawer.open .clin-toggle .ct-chev { transform: rotate(180deg); }
 .clin-body { display: none; padding-top: var(--pt-gap); }
 .clin-drawer.open .clin-body { display: block; animation: pt-rise 0.25s var(--pt-ease); }
+
+/* ===== Real ASL fingerspelling player (Send mode) ===== */
+.ghost-hands-container { display: none !important; }   /* retired fake ghost hands */
+.asl-fs-player { display: flex; flex-direction: column; align-items: center; gap: 10px; margin: 8px auto 4px; }
+#aslHandCanvas {
+  width: min(72vw, 300px); height: min(72vw, 300px);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border); border-radius: 24px;
+  box-shadow: 0 12px 36px rgba(15,23,42,0.12);
+}
+.asl-fs-letter {
+  font-size: 60px; font-weight: 800; line-height: 1; color: var(--primary);
+  letter-spacing: 1px;
+}
+.asl-fs-word {
+  font-size: 22px; font-weight: 700; letter-spacing: 6px; color: var(--text-tertiary);
+  text-transform: uppercase;
+}
+.asl-fs-word .cur { color: var(--primary); }
+.asl-fs-word .done { color: var(--text-primary); }
+.asl-fs-hint { font-size: 13px; color: var(--text-secondary); letter-spacing: 0.3px; }
 </style>
 </head>
 <body>
@@ -2425,6 +2446,14 @@ body {
     <div class="gesture-label" id="gestureLabel"></div>
   </div>
 
+  <!-- Real ASL fingerspelling player — data-derived handshapes, one per letter -->
+  <div class="asl-fs-player" id="aslFsPlayer">
+    <canvas id="aslHandCanvas" width="300" height="300"></canvas>
+    <div class="asl-fs-letter" id="aslFsLetter"></div>
+    <div class="asl-fs-word" id="aslFsWord"></div>
+    <div class="asl-fs-hint" id="aslFsHint">Fingerspelling — watch the hand</div>
+  </div>
+
   <div class="asl-progress-wrap">
     <div class="asl-progress-bar" id="aslProgressBar"></div>
   </div>
@@ -2830,6 +2859,7 @@ function init() {
   // Patient-facing UI (need cards + sentence strip).
   try { renderNeedGrid(); } catch(e) {}
   try { renderPhraseStrip(); } catch(e) {}
+  switchMode('receive');   // boot straight into the patient/camera (Receive ASL) screen
   addLogEntry('system', 'SignBridge v5.1 initialized');
 }
 
@@ -2958,16 +2988,88 @@ function showASLSign(phrase) {
 
   addLogEntry('cmd', 'Signing: ' + phrase);
 
-  const gestureType = getGestureType(phrase);
-  startGhostHandAnimation(gestureType);
+  // Real ASL fingerspelling of the phrase using data-derived handshapes.
+  fingerspellPhrase(phrase);
+}
 
-  // Progress bar
-  let progress = 0;
-  overlay._progressInterval = setInterval(() => {
-    progress += 2;
-    progressBar.style.width = Math.min(progress, 100) + '%';
-    if(progress >= 100) clearInterval(overlay._progressInterval);
-  }, 80);
+// ===== REAL ASL FINGERSPELLING PLAYER (data-derived handshapes) =====
+// Replaces the old generic "ghost hands". Each letter is drawn from a real handshape
+// template (the medoid of that letter's class in the 36k-sample landmark dataset), so
+// the hand the patient sees is genuine ASL fingerspelling geometry.
+const HAND_CONNECTIONS_FS = [[0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],[5,9],[9,10],[10,11],[11,12],[9,13],[13,14],[14,15],[15,16],[13,17],[17,18],[18,19],[19,20],[0,17]];
+let letterTemplates = null;
+let fsTimer = null;
+
+async function loadLetterTemplates() {
+  if(letterTemplates) return letterTemplates;
+  try { letterTemplates = await (await fetch('./model/letter_templates.json')).json(); }
+  catch(e) { letterTemplates = {}; }
+  return letterTemplates;
+}
+
+function drawHandshape(vec) {
+  const cv = document.getElementById('aslHandCanvas');
+  if(!cv || !vec) return;
+  const ctx = cv.getContext('2d'); const W = cv.width, H = cv.height;
+  ctx.clearRect(0, 0, W, H);
+  const pts = []; for(let i = 0; i < 21; i++) pts.push([vec[2*i], vec[2*i+1]]);
+  const pad = 48, scale = Math.min(W, H) / 2 - pad, cx = W / 2, cy = H / 2 + 24;
+  const X = p => cx + p[0] * scale, Y = p => cy + p[1] * scale;   // y-down: negative = up = fingers up
+  ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 6; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  ctx.shadowColor = 'rgba(56,189,248,0.45)'; ctx.shadowBlur = 12;
+  for(const [a, b] of HAND_CONNECTIONS_FS) { ctx.beginPath(); ctx.moveTo(X(pts[a]), Y(pts[a])); ctx.lineTo(X(pts[b]), Y(pts[b])); ctx.stroke(); }
+  ctx.shadowBlur = 0;
+  for(let i = 0; i < 21; i++) { ctx.beginPath(); ctx.arc(X(pts[i]), Y(pts[i]), i === 0 ? 7 : 5, 0, 7); ctx.fillStyle = i === 0 ? '#f59e0b' : '#e0f2fe'; ctx.fill(); }
+}
+
+function renderFsWord(stripLetters, idx) {
+  const wEl = document.getElementById('aslFsWord');
+  if(!wEl) return;
+  wEl.innerHTML = stripLetters.map((L, i) => {
+    const cls = i < idx ? 'done' : (i === idx ? 'cur' : '');
+    return `<span class="${cls}">${L === ' ' ? '&nbsp;' : L}</span>`;
+  }).join('');
+}
+
+async function fingerspellPhrase(phrase) {
+  stopFingerspell();
+  await loadLetterTemplates();
+  const letterEl = document.getElementById('aslFsLetter');
+  const hintEl = document.getElementById('aslFsHint');
+  const progressBar = document.getElementById('aslProgressBar');
+  const display = String(phrase || '').toUpperCase().replace(/[^A-Z ]/g, '').replace(/\s+/g, ' ').trim();
+  const stripLetters = display.split('');
+  const letterPositions = []; stripLetters.forEach((c, idx) => { if(c !== ' ') letterPositions.push(idx); });
+  const seq = stripLetters.filter(c => c !== ' ' && letterTemplates[c]);
+  if(seq.length === 0) {
+    if(letterEl) letterEl.textContent = '';
+    if(hintEl) hintEl.textContent = 'No fingerspelling available for this phrase';
+    renderFsWord(stripLetters, -1);
+    return;
+  }
+  if(hintEl) hintEl.textContent = 'Fingerspelling — watch the hand';
+  let i = 0;
+  const STEP = 700;
+  const tick = () => {
+    if(i >= seq.length) {
+      if(letterEl) letterEl.textContent = '✓';
+      if(progressBar) progressBar.style.width = '100%';
+      renderFsWord(stripLetters, stripLetters.length);
+      return;
+    }
+    const L = seq[i];
+    if(letterEl) letterEl.textContent = L;
+    drawHandshape(letterTemplates[L]);
+    renderFsWord(stripLetters, letterPositions[i]);
+    if(progressBar) progressBar.style.width = Math.round(((i + 1) / seq.length) * 100) + '%';
+    i++;
+    fsTimer = setTimeout(tick, STEP);
+  };
+  tick();
+}
+
+function stopFingerspell() {
+  if(fsTimer) { clearTimeout(fsTimer); fsTimer = null; }
 }
 
 function startGhostHandAnimation(gestureType) {
@@ -3047,6 +3149,7 @@ function closeASLOverlay() {
   const overlay = document.getElementById('aslOverlay');
   overlay.classList.remove('active');
   stopGhostHandAnimation();
+  stopFingerspell();
   if(overlay._progressInterval) clearInterval(overlay._progressInterval);
   // Stop any TTS in progress
   if(ttsReady) speechSynthesis.cancel();
