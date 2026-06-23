@@ -2006,12 +2006,17 @@ body {
 .asl-fs-word .done { color: var(--text-primary); }
 .asl-fs-hint { font-size: 13px; color: var(--text-secondary); letter-spacing: 0.3px; }
 #aslSignVideo { width: min(72vw, 300px); height: min(72vw, 300px); object-fit: cover; border-radius: 24px; background: var(--bg-elevated); border: 1px solid var(--border); }
+.asl-hand-svg { width: min(72vw, 300px); height: min(72vw, 300px); display: flex; align-items: center; justify-content: center; background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 24px; box-shadow: 0 12px 36px rgba(15,23,42,0.10); color: var(--text-primary); }
+.asl-hand-svg svg { width: 76%; height: 76%; color: inherit; }
 .asl-fs-dict {
   display: inline-flex; align-items: center; gap: 6px; margin-top: 2px;
   font-size: 14px; font-weight: 600; color: var(--primary); text-decoration: none;
   padding: 8px 14px; border: 1px solid var(--border); border-radius: 999px; background: var(--bg-elevated);
 }
 .asl-fs-dict:active { background: var(--border); }
+.app-credit { text-align: center; padding: 16px 12px 28px; font-size: 11px; color: var(--text-tertiary); letter-spacing: 0.2px; }
+.app-credit a { color: var(--text-secondary); text-decoration: none; }
+.app-credit a:hover { text-decoration: underline; }
 </style>
 </head>
 <body>
@@ -2358,6 +2363,8 @@ body {
 </div><!-- /app -->
 
 <!-- ===== ASL SIGNING OVERLAY (Ghost Hands) ===== -->
+<div class="app-credit">created by D. K. Adrian Williams · <a href="https://github.com/dkawjr" target="_blank" rel="noopener noreferrer">github.com/dkawjr</a></div>
+
 <div class="asl-overlay" id="aslOverlay">
   <div class="asl-phrase-text" id="aslPhraseText"></div>
 
@@ -2457,7 +2464,8 @@ body {
        If an owned whole-sign clip exists for the phrase it plays instead (video element). -->
   <div class="asl-fs-player" id="aslFsPlayer">
     <video id="aslSignVideo" playsinline muted loop style="display:none;"></video>
-    <canvas id="aslHandCanvas" width="300" height="300"></canvas>
+    <div id="aslHandSvg" class="asl-hand-svg"></div>
+    <canvas id="aslHandCanvas" width="300" height="300" style="display:none;"></canvas>
     <div class="asl-fs-letter" id="aslFsLetter"></div>
     <div class="asl-fs-word" id="aslFsWord"></div>
     <div class="asl-fs-hint" id="aslFsHint">Fingerspelling — watch the hand</div>
@@ -3038,18 +3046,19 @@ function setSignDictLink(phrase) {
   a.style.display = 'inline-flex';
 }
 function playSignVideo(src) {
-  const v = document.getElementById('aslSignVideo'), cv = document.getElementById('aslHandCanvas');
+  const v = document.getElementById('aslSignVideo'), cv = document.getElementById('aslHandCanvas'), host = document.getElementById('aslHandSvg');
   const letterEl = document.getElementById('aslFsLetter'), wordEl = document.getElementById('aslFsWord'), hintEl = document.getElementById('aslFsHint');
   if(cv) cv.style.display = 'none';
+  if(host) host.style.display = 'none';
   if(letterEl) letterEl.style.display = 'none';
   if(wordEl) wordEl.textContent = '';
   if(hintEl) hintEl.textContent = 'Whole sign';
   if(v) { v.src = src; v.style.display = 'block'; v.play().catch(() => {}); }
 }
 function resetSignVideo() {
-  const v = document.getElementById('aslSignVideo'), cv = document.getElementById('aslHandCanvas'), letterEl = document.getElementById('aslFsLetter');
+  const v = document.getElementById('aslSignVideo'), host = document.getElementById('aslHandSvg'), letterEl = document.getElementById('aslFsLetter');
   if(v) { try { v.pause(); } catch(e) {} v.removeAttribute('src'); v.style.display = 'none'; }
-  if(cv) cv.style.display = '';
+  if(host) host.style.display = 'flex';
   if(letterEl) letterEl.style.display = '';
 }
 
@@ -3059,6 +3068,7 @@ function resetSignVideo() {
 // the hand the patient sees is genuine ASL fingerspelling geometry.
 const HAND_CONNECTIONS_FS = [[0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],[5,9],[9,10],[10,11],[11,12],[9,13],[13,14],[14,15],[15,16],[13,17],[17,18],[18,19],[19,20],[0,17]];
 let letterTemplates = null;
+let letterSVGs = null;
 let fsTimer = null;
 
 async function loadLetterTemplates() {
@@ -3066,6 +3076,30 @@ async function loadLetterTemplates() {
   try { letterTemplates = await (await fetch('./model/letter_templates.json')).json(); }
   catch(e) { letterTemplates = {}; }
   return letterTemplates;
+}
+
+// Canonical public-domain ASL alphabet illustrations (Wikimedia Commons, PD), themed via
+// currentColor. Preferred over the data-derived canvas render — these are the correct shapes.
+async function loadLetterSVGs() {
+  if(letterSVGs) return letterSVGs;
+  try { letterSVGs = await (await fetch('./model/alphabet_svgs.json')).json(); }
+  catch(e) { letterSVGs = {}; }
+  return letterSVGs;
+}
+
+// Show the handshape for a letter: prefer the canonical SVG; fall back to the data-derived canvas.
+function drawHandSVG(letter) {
+  const host = document.getElementById('aslHandSvg');
+  const cv = document.getElementById('aslHandCanvas');
+  const svg = letterSVGs && letterSVGs[letter];
+  if(svg) {
+    if(host) { host.innerHTML = svg; host.style.display = 'flex'; }
+    if(cv) cv.style.display = 'none';
+  } else {
+    if(host) { host.style.display = 'none'; host.innerHTML = ''; }
+    if(cv) cv.style.display = 'block';
+    if(letterTemplates && letterTemplates[letter]) drawHandshape(letterTemplates[letter]);
+  }
 }
 
 // Convex hull (monotone chain) for the palm polygon.
@@ -3132,14 +3166,16 @@ function renderFsWord(stripLetters, idx) {
 
 async function fingerspellPhrase(phrase) {
   stopFingerspell();
-  await loadLetterTemplates();
+  await loadLetterSVGs();
+  if(!letterSVGs || !Object.keys(letterSVGs).length) await loadLetterTemplates();  // fallback set
+  const haveShape = (c) => (letterSVGs && letterSVGs[c]) || (letterTemplates && letterTemplates[c]);
   const letterEl = document.getElementById('aslFsLetter');
   const hintEl = document.getElementById('aslFsHint');
   const progressBar = document.getElementById('aslProgressBar');
   const display = String(phrase || '').toUpperCase().replace(/[^A-Z ]/g, '').replace(/\s+/g, ' ').trim();
   const stripLetters = display.split('');
   const letterPositions = []; stripLetters.forEach((c, idx) => { if(c !== ' ') letterPositions.push(idx); });
-  const seq = stripLetters.filter(c => c !== ' ' && letterTemplates[c]);
+  const seq = stripLetters.filter(c => c !== ' ' && haveShape(c));
   if(seq.length === 0) {
     if(letterEl) letterEl.textContent = '';
     if(hintEl) hintEl.textContent = 'No fingerspelling available for this phrase';
@@ -3158,7 +3194,7 @@ async function fingerspellPhrase(phrase) {
     }
     const L = seq[i];
     if(letterEl) letterEl.textContent = L;
-    drawHandshape(letterTemplates[L]);
+    drawHandSVG(L);
     renderFsWord(stripLetters, letterPositions[i]);
     if(progressBar) progressBar.style.width = Math.round(((i + 1) / seq.length) * 100) + '%';
     i++;
@@ -3741,16 +3777,27 @@ function smoothPrediction(cls, conf) {
 // ===== INFERENCE (replaces detectSimpleGestures) =====
 // Runs the trained MLP on the FIRST detected hand, smooths, thresholds, then maps
 // the predicted class onto the SAME showDetection({...}) contract the old code used.
+const HAND_SETTLE_MS = 700;   // wait this long after a hand enters frame before decoding
 function recognizeHands(result) {
   if(!cameraActive) return;
   if(!modelReady || !aslModel) return; // no model yet -> Teach panel prompts the user
   const hands = (result && result.landmarks) || [];
-  if(hands.length === 0) return;
+  if(hands.length === 0) {
+    // Hand left the frame: reset the settle timer and clear smoothing so the next hand
+    // starts fresh (don't carry stale frames into the next letter).
+    recognizeHands._handSince = 0; predHistory = [];
+    return;
+  }
+
+  // Settle delay: a hand moving into position passes through transitional shapes; decoding
+  // immediately was locking onto those and getting the first letter wrong. Hold off until the
+  // hand has been continuously present for HAND_SETTLE_MS.
+  const settleNow = Date.now();
+  if(!recognizeHands._handSince) recognizeHands._handSince = settleNow;
+  if(settleNow - recognizeHands._handSince < HAND_SETTLE_MS) return;
 
   const handednessLabel = (result.handedness && result.handedness[0] && result.handedness[0][0])
     ? result.handedness[0][0].categoryName : 'Right';
-  // normalizeLandmarks already canonicalizes handedness (MediaPipe "Left" hands are flipped
-  // to a right-hand frame), so a single-orientation prediction is correct for either hand.
   const vec = normalizeLandmarks(hands[0], handednessLabel);
   const nClasses = activeLabels.length;
 
