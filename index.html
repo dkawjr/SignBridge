@@ -3616,25 +3616,35 @@ function recognizeHands(result) {
     clearTimeout(spellingTimeout);
     spellingTimeout = setTimeout(() => {
       if(spellingBuffer.length > 1) {
-        const cmdMatch = matchSpellingToCommand(spellingBuffer);
-        if(cmdMatch) {
+        const raw = spellingBuffer;
+        const res = resolveSpelledWord(raw);
+        if(res.kind === 'exact') {
           showDetection({
-            sign: `Spelled "${spellingBuffer}" → "${cmdMatch.cmd}"`,
-            meaning: `Fingerspelled "${spellingBuffer}" matched command: "${cmdMatch.cmd}" (${cmdMatch.score}% match)`,
+            sign: `Spelled: "${res.guess}"`,
+            meaning: `Fingerspelled word: "${res.guess}"`,
             isSpelling: true,
-            commandMatch: cmdMatch
+            suggestion: { guess: res.guess, alts: [], conf: 1, kind: 'exact' }
           });
-          setTimeout(() => showASLSign(cmdMatch.cmd), 800);
-        } else {
+        } else if(res.kind === 'suggest') {
           showDetection({
-            sign: `Spelled: "${spellingBuffer}"`,
-            meaning: `Fingerspelled word: "${spellingBuffer}"`,
+            sign: `Spelled "${raw}" — did you mean "${res.guess}"?`,
+            meaning: `Fingerspelled "${raw}" — suggested "${res.guess}"`,
+            isSpelling: true,
+            suggestion: { guess: res.guess, alts: res.alts, conf: Math.max(0.5, 1 - res.norm), kind: 'suggest' }
+          });
+        } else {
+          // Nonsense / out-of-vocabulary: show the raw letters, offer NO suggestion chip.
+          showDetection({
+            sign: `Spelled: "${raw}"`,
+            meaning: `Fingerspelled letters: "${raw}"`,
             isSpelling: true
           });
         }
       }
       spellingBuffer = '';
       lastLetter = '';
+      const acList = document.getElementById('acList');
+      if(acList) { acList.classList.remove('visible'); acList.innerHTML = ''; }
     }, 2000);
 
     detected = {
@@ -4029,6 +4039,61 @@ function levenshtein(a, b) {
   return dp[m][n];
 }
 
+// ===== CONFUSION-AWARE SPELLING CORRECTION =====
+// The classifier's real static-pose confusions (from the held-out eval + ASL look-alikes).
+// A substitution BETWEEN a confusable pair costs less than a normal one, so corrections
+// favor the camera's actual weak spots (e.g. PAIM -> PAIN, since M/N look alike to the model).
+const LETTER_CONFUSIONS = {
+  A:'MESTYL', E:'AS', S:'AMENT', T:'ASN', M:'ANS', N:'MST',
+  R:'UVK', U:'RVK', V:'RU', K:'GUR', G:'KH', H:'G',
+  L:'A', Y:'AM', O:'C', C:'O'
+};
+function spellSubCost(a, b) {
+  a = a.toUpperCase(); b = b.toUpperCase();
+  if(a === b) return 0;
+  const ca = LETTER_CONFUSIONS[a] || '', cb = LETTER_CONFUSIONS[b] || '';
+  if(ca.indexOf(b) >= 0 || cb.indexOf(a) >= 0) return 0.4; // easily-confused pair
+  return 1;
+}
+function confusionDistance(a, b) {
+  a = String(a).toUpperCase(); b = String(b).toUpperCase();
+  const m = a.length, n = b.length;
+  const d = Array.from({length: m+1}, () => new Array(n+1).fill(0));
+  for(let i = 0; i <= m; i++) d[i][0] = i;
+  for(let j = 0; j <= n; j++) d[0][j] = j;
+  for(let i = 1; i <= m; i++) for(let j = 1; j <= n; j++) {
+    d[i][j] = Math.min(
+      d[i-1][j] + 1,                                  // deletion
+      d[i][j-1] + 1,                                  // insertion
+      d[i-1][j-1] + spellSubCost(a[i-1], b[j-1])      // confusion-weighted substitution
+    );
+  }
+  return d[m][n];
+}
+
+// Resolve a finished fingerspelled word against the closed perioperative lexicon.
+// Returns {kind:'exact'|'suggest'|'raw', guess, alts, norm}. It only SUGGESTS when a candidate
+// is genuinely close (normalized confusion-distance under the threshold) — it never invents a
+// guess for nonsense / out-of-vocabulary words (those return 'raw' and get no chip).
+// Threshold ~0.30 = about 1 edit in a 4-letter word; deliberately rejects 1-edit-in-3-letters.
+const SPELL_SUGGEST_THRESHOLD = 0.30;
+function resolveSpelledWord(spelled) {
+  const w = String(spelled || '').trim();
+  if(w.length < 2) return { kind:'raw', guess:w, alts:[], norm:1 };
+  const lw = w.toLowerCase();
+  const exact = patientWordList.find(x => x.toLowerCase() === lw);
+  if(exact) return { kind:'exact', guess:exact, alts:[], norm:0 };
+  let best = null, bestNorm = Infinity;
+  for(const cand of patientWordList) {
+    if(Math.abs(cand.length - w.length) > 2) continue;       // skip wildly different lengths
+    const norm = confusionDistance(w, cand) / Math.max(w.length, cand.length);
+    if(norm < bestNorm) { bestNorm = norm; best = cand; }
+  }
+  if(best && bestNorm <= SPELL_SUGGEST_THRESHOLD) {
+    return { kind:'suggest', guess:best, alts:[w], norm:bestNorm };  // offer literal spelling as alt
+  }
+  return { kind:'raw', guess:w, alts:[], norm:bestNorm };
+}
 
 function getConfidenceBadge(confidence) {
   if(!confidence) return '';
@@ -4088,11 +4153,15 @@ function showDetection(item) {
       showConfirm(item.guessPhrase || item.sign, item.confidence, item.alts || [], item.priority || 'normal');
     } catch(e) {}
   } else if(item.isSpelling) {
-    // A completed spelled word -> offer it as a one-tap confirm.
-    try {
-      const guess = (item.commandMatch && item.commandMatch.cmd) ? item.commandMatch.cmd : item.sign;
-      showConfirm(guess, item.confidence, [], 'normal');
-    } catch(e) {}
+    // Only pop a confirm chip when we actually have a candidate (exact word or a close,
+    // confidence-gated suggestion). For nonsense / unknown words there is no suggestion —
+    // we just show the raw letters and stay quiet (no fabricated "did you mean").
+    if(item.suggestion) {
+      try {
+        const s = item.suggestion;
+        showConfirm(s.guess, s.conf, s.alts || [], 'normal');
+      } catch(e) {}
+    }
   }
 
   setTimeout(() => { signEl.classList.remove('show'); signEl.className = 'detected-sign'; }, 2500);
