@@ -2005,6 +2005,13 @@ body {
 .asl-fs-word .cur { color: var(--primary); }
 .asl-fs-word .done { color: var(--text-primary); }
 .asl-fs-hint { font-size: 13px; color: var(--text-secondary); letter-spacing: 0.3px; }
+#aslSignVideo { width: min(72vw, 300px); height: min(72vw, 300px); object-fit: cover; border-radius: 24px; background: var(--bg-elevated); border: 1px solid var(--border); }
+.asl-fs-dict {
+  display: inline-flex; align-items: center; gap: 6px; margin-top: 2px;
+  font-size: 14px; font-weight: 600; color: var(--primary); text-decoration: none;
+  padding: 8px 14px; border: 1px solid var(--border); border-radius: 999px; background: var(--bg-elevated);
+}
+.asl-fs-dict:active { background: var(--border); }
 </style>
 </head>
 <body>
@@ -2446,12 +2453,15 @@ body {
     <div class="gesture-label" id="gestureLabel"></div>
   </div>
 
-  <!-- Real ASL fingerspelling player — data-derived handshapes, one per letter -->
+  <!-- Real ASL fingerspelling player — data-derived handshapes, one per letter.
+       If an owned whole-sign clip exists for the phrase it plays instead (video element). -->
   <div class="asl-fs-player" id="aslFsPlayer">
+    <video id="aslSignVideo" playsinline muted loop style="display:none;"></video>
     <canvas id="aslHandCanvas" width="300" height="300"></canvas>
     <div class="asl-fs-letter" id="aslFsLetter"></div>
     <div class="asl-fs-word" id="aslFsWord"></div>
     <div class="asl-fs-hint" id="aslFsHint">Fingerspelling — watch the hand</div>
+    <a id="aslSignDictLink" class="asl-fs-dict" target="_blank" rel="noopener noreferrer">Watch a real signer ↗</a>
   </div>
 
   <div class="asl-progress-wrap">
@@ -2988,8 +2998,59 @@ function showASLSign(phrase) {
 
   addLogEntry('cmd', 'Signing: ' + phrase);
 
-  // Real ASL fingerspelling of the phrase using data-derived handshapes.
-  fingerspellPhrase(phrase);
+  // Always offer a link out to a real signer's video (no clean-licensed clip exists to bundle).
+  setSignDictLink(phrase);
+
+  // If we OWN a whole-sign clip for this phrase, play it; otherwise fall back to fingerspelling.
+  const clip = signVideoFor(phrase);
+  if(clip) {
+    resetSignVideo(); playSignVideo(clip);
+    if(progressBar) progressBar.style.width = '100%';
+  } else {
+    resetSignVideo();
+    fingerspellPhrase(phrase);
+  }
+}
+
+// ===== WHOLE-SIGN CLIPS (owned/recorded) + real-signer link-out =====
+// No free, cleanly-licensed ASL whole-sign video set exists to bundle, so: (1) link out to a
+// real signer's dictionary entry, and (2) play an OWNED clip here if one has been recorded.
+// To add owned clips, drop files under ./videos/ and map them here (key = lowercase phrase or
+// keyword), e.g. signVideos['pain'] = './videos/pain.webm'.
+const signVideos = {};
+const SIGN_STOPWORDS = new Set(['i','a','an','the','am','is','are','to','my','me','you','your','need','please','of','it','in','on','do','can','t','want','feel','feeling','have','this','that','some','more','little','very','now','help']);
+function signKeyword(phrase) {
+  const words = String(phrase || '').toLowerCase().replace(/[^a-z\s]/g, ' ').split(/\s+/).filter(w => w && !SIGN_STOPWORDS.has(w));
+  if(words.length) return words.sort((a, b) => b.length - a.length)[0];   // key noun ≈ longest content word
+  const fallback = String(phrase || '').toLowerCase().replace(/[^a-z\s]/g, ' ').split(/\s+/).filter(Boolean);
+  return fallback[0] || '';
+}
+function signVideoFor(phrase) {
+  const p = String(phrase || '').toLowerCase().trim();
+  return signVideos[p] || signVideos[signKeyword(phrase)] || null;
+}
+function setSignDictLink(phrase) {
+  const a = document.getElementById('aslSignDictLink');
+  if(!a) return;
+  const kw = signKeyword(phrase);
+  if(!kw) { a.style.display = 'none'; return; }
+  a.href = 'https://www.signingsavvy.com/sign/' + encodeURIComponent(kw.toUpperCase());
+  a.style.display = 'inline-flex';
+}
+function playSignVideo(src) {
+  const v = document.getElementById('aslSignVideo'), cv = document.getElementById('aslHandCanvas');
+  const letterEl = document.getElementById('aslFsLetter'), wordEl = document.getElementById('aslFsWord'), hintEl = document.getElementById('aslFsHint');
+  if(cv) cv.style.display = 'none';
+  if(letterEl) letterEl.style.display = 'none';
+  if(wordEl) wordEl.textContent = '';
+  if(hintEl) hintEl.textContent = 'Whole sign';
+  if(v) { v.src = src; v.style.display = 'block'; v.play().catch(() => {}); }
+}
+function resetSignVideo() {
+  const v = document.getElementById('aslSignVideo'), cv = document.getElementById('aslHandCanvas'), letterEl = document.getElementById('aslFsLetter');
+  if(v) { try { v.pause(); } catch(e) {} v.removeAttribute('src'); v.style.display = 'none'; }
+  if(cv) cv.style.display = '';
+  if(letterEl) letterEl.style.display = '';
 }
 
 // ===== REAL ASL FINGERSPELLING PLAYER (data-derived handshapes) =====
@@ -3188,6 +3249,7 @@ function closeASLOverlay() {
   overlay.classList.remove('active');
   stopGhostHandAnimation();
   stopFingerspell();
+  resetSignVideo();
   if(overlay._progressInterval) clearInterval(overlay._progressInterval);
   // Stop any TTS in progress
   if(ttsReady) speechSynthesis.cancel();
@@ -3491,6 +3553,9 @@ async function initMediaPipeHands() {
     });
     mpHands = handLandmarker; // engine-ready flag for the rest of the app
     if(statusEl) statusEl.innerHTML = '<div class="dot"></div>Hand model loaded — waiting for camera';
+    // If the camera was already started before the landmarker finished loading, the rAF loop
+    // bailed out (and cleared rafLoopId). Restart it now that detection is ready.
+    if(cameraActive && rafLoopId === null) { _lastVideoTime = -1; rafLoopId = requestAnimationFrame(handDetectLoop); }
     // If a saved classifier exists, load it now so we boot straight into inference.
     tryLoadSavedModel();
   } catch(e) {
@@ -3605,18 +3670,24 @@ function onHandResults(result) {
 //   3) tf.js MLP -> softmax over ASL_CLASSES
 //   4) temporal smoothing + confidence threshold -> stable detection
 //
-// Feature normalization is the kinivi (Apache-2.0) recipe, ported exactly:
+// Feature normalization is the kinivi (Apache-2.0) recipe, ported EXACTLY (the model was
+// trained on this same pipeline, so inference must match it precisely):
 //   - take 21 (x,y) pairs
 //   - subtract landmark 0 (wrist) from every point  (translation invariance)
 //   - flatten 21x2 -> 42
 //   - divide every value by the max absolute value  (scale invariance)
-//   - mirror LEFT hands to a canonical right hand (flip x sign on relative coords)
+// NOTE: the training pipeline does NOT canonicalize handedness, so we don't either — applying a
+// per-hand x-flip would (a) deviate from the trained distribution and (b) be unreliable, because
+// MediaPipe handedness assumes a MIRRORED selfie frame while detectForVideo() receives the RAW
+// camera frame, so the label can be inverted. HAND_MIRROR is the single global orientation knob:
+// keep it 1 (raw, matches training). If a live session shows EVERY letter reading mirrored/wrong,
+// the data's native orientation is opposite this camera — flip HAND_MIRROR to -1.
+const HAND_MIRROR = 1;
 
 function normalizeLandmarks(landmarks, handednessLabel) {
-  // landmarks: array of 21 {x,y,z} in [0,1]. handednessLabel: 'Left' | 'Right'.
-  // Build wrist-relative (x,y) pairs.
+  // landmarks: array of 21 {x,y,z} in [0,1]. handednessLabel kept for API compatibility (unused).
   const wrist = landmarks[0];
-  const flipX = (handednessLabel === 'Left') ? -1 : 1; // canonicalize lefties to a right hand
+  const flipX = HAND_MIRROR;
   const vec = new Array(42);
   for(let i = 0; i < 21; i++) {
     let rx = (landmarks[i].x - wrist.x) * flipX;
