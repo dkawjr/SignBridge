@@ -3777,22 +3777,33 @@ function smoothPrediction(cls, conf) {
 // ===== INFERENCE (replaces detectSimpleGestures) =====
 // Runs the trained MLP on the FIRST detected hand, smooths, thresholds, then maps
 // the predicted class onto the SAME showDetection({...}) contract the old code used.
-const HAND_SETTLE_MS = 700;   // wait this long after a hand enters frame before decoding
+const HAND_SETTLE_MS = 700;   // wait this long after a hand FIRST enters before decoding
+const HAND_GAP_MS = 500;      // a no-hand gap longer than this counts as the hand truly leaving
 function recognizeHands(result) {
   if(!cameraActive) return;
   if(!modelReady || !aslModel) return; // no model yet -> Teach panel prompts the user
   const hands = (result && result.landmarks) || [];
+  const settleNow = Date.now();
   if(hands.length === 0) {
-    // Hand left the frame: reset the settle timer and clear smoothing so the next hand
-    // starts fresh (don't carry stale frames into the next letter).
-    recognizeHands._handSince = 0; predHistory = [];
+    // Only treat this as the hand LEAVING if it's been gone past the grace gap. MediaPipe
+    // briefly drops to 0 hands during fast letter-to-letter / word-to-word transitions; we must
+    // NOT re-impose the settle delay on those blips (that would add ~0.7s between every letter).
+    if(recognizeHands._lastHandSeen && (settleNow - recognizeHands._lastHandSeen) > HAND_GAP_MS) {
+      recognizeHands._handSince = 0; predHistory = [];
+    }
     return;
   }
 
+  // Hand present. Re-arm the settle delay ONLY on a fresh entry (first ever, or after a real gap).
+  // Continuous signing — including momentary tracking blips — keeps the original _handSince, so the
+  // 0.7s settle is paid once when the hand first appears, never between letters or words.
+  if(!recognizeHands._lastHandSeen || (settleNow - recognizeHands._lastHandSeen) > HAND_GAP_MS) {
+    recognizeHands._handSince = settleNow;
+  }
+  recognizeHands._lastHandSeen = settleNow;
+
   // Settle delay: a hand moving into position passes through transitional shapes; decoding
-  // immediately was locking onto those and getting the first letter wrong. Hold off until the
-  // hand has been continuously present for HAND_SETTLE_MS.
-  const settleNow = Date.now();
+  // immediately was locking onto those and getting the first letter wrong.
   if(!recognizeHands._handSince) recognizeHands._handSince = settleNow;
   if(settleNow - recognizeHands._handSince < HAND_SETTLE_MS) return;
 
