@@ -2014,6 +2014,11 @@ body {
   padding: 8px 14px; border: 1px solid var(--border); border-radius: 999px; background: var(--bg-elevated);
 }
 .asl-fs-dict:active { background: var(--border); }
+/* Live letter + confidence readout in the camera corner (matches PsychBridge) */
+.sb-cam-letter { position: absolute; bottom: 8px; right: 8px; z-index: 2; background: rgba(0,0,0,0.62); color: #fff; border-radius: 10px; padding: 6px 12px; text-align: center; min-width: 56px; }
+.sb-cam-letter .cl { font-size: 30px; font-weight: 800; line-height: 1; }
+.sb-cam-letter .cl.word { font-size: 16px; padding: 5px 0; }
+.sb-cam-letter .cc { font-size: 10px; opacity: 0.85; margin-top: 2px; }
 .app-credit { text-align: center; padding: 16px 12px 28px; font-size: 11px; color: var(--text-tertiary); letter-spacing: 0.2px; }
 .app-credit a { color: var(--text-secondary); text-decoration: none; }
 .app-credit a:hover { text-decoration: underline; }
@@ -2147,6 +2152,7 @@ body {
       <div class="patient-cam-viewport">
         <video id="patientCamFeed" autoplay playsinline muted></video>
         <canvas id="patientHandCanvas"></canvas>
+        <div class="sb-cam-letter"><div class="cl" id="sbCamLetterVal">–</div><div class="cc" id="sbCamLetterConf"></div></div>
         <div class="patient-cam-overlay" id="patientCamOverlay" onclick="togglePatientCamera()">
           <div class="cam-icon">👋</div>
           <div class="cam-text">Tap to start signing</div>
@@ -3696,6 +3702,7 @@ function onHandResults(result) {
       statusEl.innerHTML = '<div class="dot"></div>Scanning for hands...';
     }
     if(countEl) countEl.classList.remove('visible');
+    updateCamLetter(null);
   }
 }
 
@@ -3779,6 +3786,20 @@ function smoothPrediction(cls, conf) {
 // the predicted class onto the SAME showDetection({...}) contract the old code used.
 const HAND_SETTLE_MS = 700;   // wait this long after a hand FIRST enters before decoding
 const HAND_GAP_MS = 500;      // a no-hand gap longer than this counts as the hand truly leaving
+// Live letter/sign + confidence readout in the camera corner.
+function updateCamLetter(cls, conf) {
+  const le = document.getElementById('sbCamLetterVal');
+  const ce = document.getElementById('sbCamLetterConf');
+  if(!le) return;
+  if(!cls) { le.textContent = '–'; le.className = 'cl'; if(ce) ce.textContent = ''; return; }
+  let label = cls;
+  if(typeof ASL_GESTURES_LIST !== 'undefined' && ASL_GESTURES_LIST.includes(cls)) {
+    label = (typeof GESTURE_MEANING !== 'undefined' && GESTURE_MEANING[cls]) ? GESTURE_MEANING[cls] : cls.replace(/_/g, ' ');
+  }
+  le.textContent = label;
+  le.className = 'cl' + (String(label).length > 2 ? ' word' : '');
+  if(ce) ce.textContent = Math.round((conf || 0) * 100) + '%';
+}
 function recognizeHands(result) {
   if(!cameraActive) return;
   if(!modelReady || !aslModel) return; // no model yet -> Teach panel prompts the user
@@ -3834,7 +3855,10 @@ function recognizeHands(result) {
   // Temporal smoothing.
   const smoothed = smoothPrediction(rawCls, topProb);
   if(!smoothed) return;
-  if(smoothed.cls === 'NONE') { spellingBuffer = ''; return; }
+  if(smoothed.cls === 'NONE') { spellingBuffer = ''; updateCamLetter(null); return; }
+  // Live corner readout: show the current letter/sign + confidence even before the
+  // acceptance threshold (mirrors PsychBridge's camera readout).
+  updateCamLetter(smoothed.cls, smoothed.conf);
   if(smoothed.conf < CONF_THRESHOLD) return;
 
   // Debounce so we don't spam showDetection every frame.
