@@ -116,6 +116,12 @@ body {
   position: relative;
   overflow: hidden;
 }
+/* Large screens (iPad / desktop): frame the column so it reads as an intentional app */
+@media (min-width: 600px) {
+  body { background: #E2E8F0; }
+  [data-theme="dark"] body { background: #070B16; }
+  .app { box-shadow: 0 0 0 1px var(--border), 0 24px 70px rgba(15, 23, 42, 0.18); }
+}
 
 /* ===== TOP NAV ===== */
 .top-nav {
