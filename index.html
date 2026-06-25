@@ -2014,6 +2014,21 @@ body {
   padding: 8px 14px; border: 1px solid var(--border); border-radius: 999px; background: var(--bg-elevated);
 }
 .asl-fs-dict:active { background: var(--border); }
+/* Send-mode tools: write-to-patient, live captions, recovery loop */
+.send-tools { display: flex; gap: 8px; margin-bottom: var(--space-md); flex-wrap: wrap; }
+.send-tool { flex: 1; min-width: 110px; padding: 11px 10px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--bg-elevated); font-family: var(--font); font-size: 13px; font-weight: 600; color: var(--text-primary); cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; }
+.send-tool:active { background: var(--bg-inset); }
+.send-tool.active { border-color: var(--primary); background: var(--primary-light); color: var(--primary); }
+.write-card { border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--bg-elevated); padding: var(--space-md); margin-bottom: var(--space-md); box-shadow: var(--shadow-sm); }
+.write-card textarea { width: 100%; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--bg-inset); color: var(--text-primary); font-family: var(--font); font-size: 16px; padding: 10px; outline: none; resize: vertical; min-height: 64px; margin-bottom: 8px; }
+.write-card .wc-row { display: flex; gap: 8px; }
+.write-card .wc-row button { flex: 1; padding: 11px; border-radius: var(--radius-md); border: 1px solid var(--border); font-family: var(--font); font-size: 14px; font-weight: 600; cursor: pointer; background: var(--bg-elevated); color: var(--text-primary); }
+.write-card .wc-row button.primary { background: var(--primary); border-color: var(--primary); color: #fff; }
+.ada-note { font-size: 11px; line-height: 1.5; color: var(--text-tertiary); background: var(--bg-inset); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 10px 12px; margin-top: var(--space-lg); }
+.asl-overlay.bigtext .asl-fs-player, .asl-overlay.bigtext .asl-progress-wrap, .asl-overlay.bigtext .ghost-hands-container { display: none !important; }
+.asl-overlay.bigtext .asl-phrase-text { font-size: clamp(34px, 9vw, 68px); line-height: 1.25; max-width: 92%; font-weight: 800; }
+.asl-overlay.captions .asl-fs-player, .asl-overlay.captions .asl-progress-wrap, .asl-overlay.captions .ghost-hands-container { display: none !important; }
+.asl-overlay.captions .asl-phrase-text { font-size: clamp(28px, 7vw, 52px); line-height: 1.3; max-width: 94%; min-height: 1.3em; }
 /* Live letter + confidence readout in the camera corner (matches PsychBridge) */
 .sb-cam-letter { position: absolute; bottom: 8px; right: 8px; z-index: 2; background: rgba(0,0,0,0.62); color: #fff; border-radius: 10px; padding: 6px 12px; text-align: center; min-width: 56px; }
 .sb-cam-letter .cl { font-size: 30px; font-weight: 800; line-height: 1; }
@@ -2067,10 +2082,23 @@ body {
 
       <div class="search-bar">
         <span class="search-icon">⌕</span>
-        <input type="text" placeholder="Search 70 perioperative commands..." id="searchInput" oninput="filterCommands(this.value)">
+        <input type="text" placeholder="Search perioperative phrases..." id="searchInput" oninput="filterCommands(this.value)">
         <button class="mic-search-btn" id="micSearchBtn" onclick="toggleMic()" title="Voice search">
           <span id="micSearchIcon">🎤</span>
         </button>
+      </div>
+
+      <div class="send-tools">
+        <button class="send-tool" onclick="openWriteToPatient()">✍️ Write to patient</button>
+        <button class="send-tool" id="captionsBtn" onclick="toggleLiveCaptions()">💬 Live captions</button>
+        <button class="send-tool" onclick="startEmergenceLoop()">🌅 Recovery loop</button>
+      </div>
+      <div class="write-card" id="writeCard" style="display:none;">
+        <textarea id="writeInput" placeholder="Type a message to show the patient in big text…"></textarea>
+        <div class="wc-row">
+          <button class="primary" onclick="showBigText(document.getElementById('writeInput').value)">Show big text</button>
+          <button onclick="(function(){var v=document.getElementById('writeInput').value; if(v.trim()) showASLSign(v);})()">Fingerspell</button>
+        </div>
       </div>
 
       <!-- Voice match result (appears inline when voice matched) -->
@@ -2093,6 +2121,8 @@ body {
 
       <div class="section-label">Phrase Library</div>
       <div class="command-grid" id="commandGrid"></div>
+
+      <div class="ada-note">⚖️ SignBridge is a communication aid — not a qualified medical interpreter or VRI service, and not a substitute for a qualified interpreter (on-site or VRI) for informed consent, diagnosis, or complex discussion. Under the ADA, ACA Section 1557, and Joint Commission standards, the provider must offer a qualified interpreter at no cost and give primary consideration to the patient's preferred communication.</div>
 
       <div style="margin-top:var(--space-xl);">
         <div class="section-label">Favorites</div>
@@ -2568,7 +2598,7 @@ const demoSteps = [
   },
   {
     title: 'Command Library',
-    desc: '70 perioperative commands from LinguaMed MADE Labs, organized into 7 clinical categories. Tap any phrase to show its ASL translation.',
+    desc: 'Perioperative phrases organized by anesthesia workflow (pre-op, consent, regional, induction, awake/intra-op, recovery, pain, urgent). Tap any phrase to show its ASL fingerspelling and a link to a real signer.',
     target: '#commandGrid',
     action: () => { switchMode('send'); switchTab('commandScreen', document.querySelector('.tab')); }
   },
@@ -2649,36 +2679,23 @@ function endDemo() {
   switchTab('commandScreen', document.querySelector('.tab'));
 }
 
-// ===== COMMAND DATA (70 LinguaMed MADE Labs commands) =====
-const commandData = {
-  'All': [
-    'I am going to examine you','Open your mouth','Take a deep breath','I need to check your blood pressure',
-    'Look straight ahead','Follow my finger with your eyes','Squeeze my hand','Lift your arm',
-    'Does this hurt?','Point to where it hurts','Rate your pain 1 to 10','Are you in pain?',
-    'You are going to have surgery','We need to put you to sleep','The surgery went well','You are in the recovery room',
-    'I am your doctor','I am your nurse','My name is','We are here to help you',
-    'Do you understand?','Nod yes or shake no','Do you have allergies?','Have you eaten today?',
-    'Can you swallow?','Are you nauseous?','Do you feel dizzy?','Do you need water?',
-    'I will give you medicine','This is for pain','This will help you sleep','Take this medication',
-    'We need to take blood','I need to start an IV','This will pinch a little','Stay still please',
-    'Breathe in','Breathe out','Hold your breath','Cough for me',
-    'Turn to your left','Turn to your right','Sit up please','Lie down please',
-    'You need to rest','Do not eat or drink','You can go home today','Someone will come for you',
-    'Press the call button if you need help','A translator is coming','Your family is here','Visiting hours are over',
-    'We need your consent','Please sign here','Do you have questions?','I will explain the procedure',
-    'You will feel pressure','You will feel cold','This will be quick','Try to relax',
-    'Everything is going well','You are doing great','Almost done','You are safe',
-    'We need an X-ray','We need a CT scan','We need to run tests','Results will take time',
-    'You need to come back','Follow up in one week','Take your medicine as prescribed','Call if you have problems'
-  ],
-  'Exam': ['I am going to examine you','Open your mouth','Take a deep breath','I need to check your blood pressure','Look straight ahead','Follow my finger with your eyes','Squeeze my hand','Lift your arm','Breathe in','Breathe out','Hold your breath','Cough for me'],
-  'Pain': ['Does this hurt?','Point to where it hurts','Rate your pain 1 to 10','Are you in pain?','I will give you medicine','This is for pain','You will feel pressure','You will feel cold'],
-  'Surgery': ['You are going to have surgery','We need to put you to sleep','The surgery went well','You are in the recovery room','We need your consent','Please sign here','I will explain the procedure','This will be quick'],
-  'Identity': ['I am your doctor','I am your nurse','My name is','We are here to help you','A translator is coming','Your family is here'],
-  'Assessment': ['Do you understand?','Nod yes or shake no','Do you have allergies?','Have you eaten today?','Can you swallow?','Are you nauseous?','Do you feel dizzy?','Do you need water?','Do you have questions?'],
-  'Instructions': ['Turn to your left','Turn to your right','Sit up please','Lie down please','You need to rest','Do not eat or drink','Stay still please','Try to relax','Press the call button if you need help'],
-  'Discharge': ['You can go home today','Someone will come for you','You need to come back','Follow up in one week','Take your medicine as prescribed','Call if you have problems','Results will take time']
+// ===== COMMAND DATA — perioperative phrase library, organized by anesthesia workflow =====
+// Phrase set verified against perioperative deaf-care practice; each phrase resolves to a
+// single-word real-signer lookup (Signing Savvy) + in-app fingerspelling via showASLSign().
+const _CMD_CATS = {
+  'Pre-op': ['When did you last eat or drink?','Nothing to eat or drink before surgery','Do you have any allergies?','What medicines do you take?','Do you take blood thinners?','Do you have loose teeth or dentures?','Please remove your dentures','Do you snore or use CPAP?','Could you be pregnant?','Have you had anesthesia before?','Do you have heart or lung problems?','Do you smoke or drink alcohol?'],
+  'Consent': ['We will explain the surgery and the risks','A qualified interpreter will help you understand','Do you have questions?','Do you give permission?','You can stop or ask anytime','Please sign here'],
+  'Regional block': ['We will numb the area','Please sit up and bend forward','Hold still, do not move','You will feel pressure','You may feel a pinch','Tell me if it feels sharp or electric','Tell me if you feel it in your leg','Your legs will feel heavy and numb. This is normal'],
+  'Induction': ['We are starting now','We need to put you to sleep','You will feel sleepy soon','This is oxygen. Breathe normally','Take slow deep breaths','You are safe. We are watching you'],
+  'Awake / intra-op': ['Are you comfortable?','Are you in pain?','Do you feel anything sharp?','Raise your hand if you feel pain','We are almost done','Please stay still','You may hear noises. This is normal','Do you feel sick or dizzy?'],
+  'Recovery': ['The surgery is finished','You are in the recovery room','Everything went well','Take a deep breath','Where is your pain? Point to it','Rate your pain 0 to 10','Do you feel nausea?','Are you cold?','Are you thirsty?','Try not to touch the tube or IV'],
+  'Pain': ['Does this hurt?','Point to where it hurts','Rate your pain 0 to 10','Are you in pain?','I will give you pain medicine','This is for pain'],
+  'Urgent': ['Can you breathe?','Is it hard to breathe?','Do you have chest pain?','Do you feel nausea?','You are safe. We are helping you','Stay calm. Look at me','I need help right now'],
+  'Identity': ['I am your doctor','I am your nurse','I am your anesthesiologist','My name is','We are here to help you','A qualified interpreter is coming','Your family is here'],
+  'Comfort': ['You are doing great','Almost done','Try to relax','You will feel cold','Do you need water?','Are you warm enough?'],
+  'Discharge': ['You can go home today','Someone will come for you','Follow up in one week','Take your medicine as prescribed','Call if you have problems']
 };
+const commandData = Object.assign({ 'All': [...new Set(Object.values(_CMD_CATS).flat())] }, _CMD_CATS);
 
 // ===== SPANISH TRANSLATIONS =====
 const spanishTranslations = {
@@ -3006,6 +3023,8 @@ function showASLSign(phrase) {
   const phraseText = document.getElementById('aslPhraseText');
   const progressBar = document.getElementById('aslProgressBar');
 
+  stopLiveCaptions();                         // a tapped phrase supersedes live captions
+  overlay.classList.remove('bigtext', 'captions');
   phraseText.textContent = phrase;
   progressBar.style.width = '0%';
   overlay.classList.add('active');
@@ -3288,7 +3307,9 @@ function replayASL() {
 
 function closeASLOverlay() {
   const overlay = document.getElementById('aslOverlay');
-  overlay.classList.remove('active');
+  stopEmergenceLoop();
+  stopLiveCaptions();
+  overlay.classList.remove('active', 'bigtext', 'captions');
   stopGhostHandAnimation();
   stopFingerspell();
   resetSignVideo();
@@ -3297,6 +3318,60 @@ function closeASLOverlay() {
   if(ttsReady) speechSynthesis.cancel();
   document.querySelectorAll('.tts-btn').forEach(b => b.classList.remove('speaking'));
 }
+
+// ===== SEND-MODE TOOLS: write-to-patient, live captions, recovery/emergence loop =====
+function openWriteToPatient() {
+  const c = document.getElementById('writeCard'); if(!c) return;
+  const show = c.style.display === 'none';
+  c.style.display = show ? 'block' : 'none';
+  if(show) { const i = document.getElementById('writeInput'); if(i) i.focus(); }
+}
+// Big on-screen text for patients who read English / lip-read rather than sign.
+function showBigText(text) {
+  const t = String(text || '').trim(); if(!t) return;
+  const overlay = document.getElementById('aslOverlay');
+  const phraseText = document.getElementById('aslPhraseText');
+  stopLiveCaptions(); stopEmergenceLoop(); stopFingerspell(); resetSignVideo();
+  overlay.classList.remove('captions');
+  if(phraseText) phraseText.textContent = t;
+  overlay.classList.add('active', 'bigtext');
+  try { if(typeof ttsReady === 'undefined' || ttsReady) { speechSynthesis.cancel(); speechSynthesis.speak(new SpeechSynthesisUtterance(t)); } } catch(e) {}
+  if(typeof addLogEntry === 'function') addLogEntry('cmd', 'Showed text: ' + t);
+}
+// Live captions: transcribe the team's speech to big on-screen text for the deaf patient.
+let captionRec = null, captionsOn = false;
+function toggleLiveCaptions() {
+  if(captionsOn) { stopLiveCaptions(); return; }
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if(!SR) { alert('Live captions need Chrome or Edge (Web Speech API).'); return; }
+  const overlay = document.getElementById('aslOverlay');
+  const phraseText = document.getElementById('aslPhraseText');
+  stopEmergenceLoop(); stopFingerspell(); resetSignVideo();
+  overlay.classList.remove('bigtext');
+  if(phraseText) phraseText.textContent = 'Listening…';
+  overlay.classList.add('active', 'captions');
+  captionRec = new SR(); captionRec.continuous = true; captionRec.interimResults = true; captionRec.lang = 'en-US';
+  captionRec.onresult = (e) => { let s = ''; for(let i = 0; i < e.results.length; i++) s += e.results[i][0].transcript + ' '; s = s.trim(); if(phraseText) phraseText.textContent = s.slice(-180) || 'Listening…'; };
+  captionRec.onerror = () => {};
+  captionRec.onend = () => { if(captionsOn) { try { captionRec.start(); } catch(e) {} } };
+  captionsOn = true; try { captionRec.start(); } catch(e) {}
+  const btn = document.getElementById('captionsBtn'); if(btn) btn.classList.add('active');
+}
+function stopLiveCaptions() {
+  captionsOn = false;
+  if(captionRec) { try { captionRec.onend = null; captionRec.stop(); } catch(e) {} captionRec = null; }
+  const btn = document.getElementById('captionsBtn'); if(btn) btn.classList.remove('active');
+  const overlay = document.getElementById('aslOverlay'); if(overlay) overlay.classList.remove('captions');
+}
+// Emergence / recovery loop: auto-cycle reassurance for the waking patient.
+let emergenceTimer = null, emergenceIdx = 0;
+const EMERGENCE_PHRASES = ['The surgery is finished','You are in the recovery room','Everything went well','You are safe','Take a slow deep breath'];
+function startEmergenceLoop() {
+  stopLiveCaptions(); stopEmergenceLoop(); emergenceIdx = 0;
+  const step = () => { showASLSign(EMERGENCE_PHRASES[emergenceIdx % EMERGENCE_PHRASES.length]); emergenceIdx++; emergenceTimer = setTimeout(step, 6000); };
+  step();
+}
+function stopEmergenceLoop() { if(emergenceTimer) { clearTimeout(emergenceTimer); emergenceTimer = null; } }
 
 // ===== FAVORITES (Quick Phrases) =====
 function renderQuickPhrases() {
@@ -3375,7 +3450,7 @@ function matchCommand(transcript) {
   });
 
   const card = document.getElementById('voiceMatchInline');
-  document.getElementById('searchInput').placeholder = 'Search 70 perioperative commands...';
+  document.getElementById('searchInput').placeholder = 'Search perioperative phrases...';
 
   if(bestMatch && bestScore > 0.3) {
     voiceMatchedCmd = bestMatch;
