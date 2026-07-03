@@ -3,3 +3,20 @@ _train/*.csv
 _train/prepared.json
 node_modules/
 *.log
+
+# Capacitor build output (regenerate with: npm run build:www && npx cap sync)
+www/
+# Note: vendor/ (offline libs) and model/ ARE committed as source.
+
+# Native build artifacts
+android/.gradle/
+android/app/build/
+android/build/
+android/local.properties
+android/.idea/
+android/app/src/main/assets/public/
+ios/App/Pods/
+ios/App/App/public/
+ios/App/build/
+ios/DerivedData/
+.DS_Store

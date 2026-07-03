@@ -1,0 +1,19 @@
+{
+  "appId": "com.dkawjr.signbridge",
+  "appName": "SignBridge",
+  "webDir": "www",
+  "backgroundColor": "#ffffff",
+  "android": {
+    "backgroundColor": "#ffffff"
+  },
+  "ios": {
+    "backgroundColor": "#ffffff",
+    "contentInset": "always",
+    "limitsNavigationsToAppBoundDomains": true
+  },
+  "plugins": {
+    "CapacitorHttp": {
+      "enabled": false
+    }
+  }
+}
