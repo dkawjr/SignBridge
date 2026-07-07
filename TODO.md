@@ -1,5 +1,21 @@
 # SignBridge — running TODO
 
+## Done 2026-07-06 (v6.0 clinical-deployment overhaul)
+Evidence-based hardening for clinical use + iOS submission prep, all in `index.html` unless noted:
+"said aloud" confirmation banner (deaf patient's proof their message was voiced; warns when TTS is
+unavailable); granular camera error handling with retry (permission / no camera / busy / insecure-context,
+each with its own guidance); recognition-engine failure banner (recognition down ≠ app down — tap cards
+keep working); interpreter gate on consent/diagnosis/medication/discharge topics + one-tap timestamped
+interpreter-request logging (ADA/§1557); first-session communication-preference chooser (primary
+consideration); comfort mode (PACU/groggy: 8 essential needs, extra large); Wong-Baker-style face anchors
+on the pain scale; staff tip card (no family interpreters, face the patient, pre-op signal rehearsal);
+in-app text size A/A+/A++; full ARIA pass (labels, live regions, keyboard access for tabs/body-map/severity
+dots, alertdialog on emergency); zoom re-enabled; WCAG contrast lift light+dark; focus-visible styles;
+global reduced-motion; toast replaces alert(); v6.0. iOS: `PrivacyInfo.xcprivacy` added (needs one drag
+into the Xcode target — see BUILD_AND_SUBMIT.md), `ITSAppUsesNonExemptEncryption=false`, `arm64`,
+removed `limitsNavigationsToAppBoundDomains` (breaks WKWebView getUserMedia), review-notes/accessibility-
+labels guidance updated. Verified in-browser (light+dark, all new features).
+
 Live: **https://dkawjr.github.io/SignBridge/** · Repo: `github.com/dkawjr/SignBridge` (single-file `index.html`, deploys via GitHub Pages from `main`).
 
 ## Needs a real person + webcam (no agent can do these)

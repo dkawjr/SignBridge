@@ -2,7 +2,8 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="description" content="SignBridge — offline, on-device ASL fingerspelling communication for clinical care. No accounts, no network, nothing recorded.">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" id="themeColor" content="#FFFFFF">
@@ -49,7 +50,7 @@ html{font-size:16px;-webkit-text-size-adjust:100%;-webkit-tap-highlight-color:tr
   --border-strong: #CBD5E1;
   --text-primary: #0F172A;
   --text-secondary: #475569;
-  --text-tertiary: #94A3B8;
+  --text-tertiary: #64748B;   /* was #94A3B8 — lifted to clear 4.5:1 on --bg */
   --text-inverse: #FFFFFF;
   --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
   --shadow-md: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
@@ -81,8 +82,8 @@ html{font-size:16px;-webkit-text-size-adjust:100%;-webkit-tap-highlight-color:tr
   --border: #334155;
   --border-strong: #475569;
   --text-primary: #F1F5F9;
-  --text-secondary: #94A3B8;
-  --text-tertiary: #64748B;
+  --text-secondary: #A5B4C8;
+  --text-tertiary: #8B9BB4;   /* was #64748B — lifted to clear 4.5:1 on dark --bg */
   --text-inverse: #0F172A;
   --primary-light: #1E3A5F;
   --success-light: #064E3B;
@@ -1732,6 +1733,8 @@ body {
 .pt-cam .patient-cam-overlay .cam-icon {
   width: 72px; height: 72px; font-size: 30px;
   background: var(--care-light); color: var(--care);
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
 }
 .pt-cam .patient-cam-overlay .cam-text {
   font-size: var(--pt-text-xl); font-weight: 600; color: var(--text-secondary);
@@ -2043,24 +2046,247 @@ body {
 .app-credit { text-align: center; padding: 16px 12px 28px; font-size: 11px; color: var(--text-tertiary); letter-spacing: 0.2px; }
 .app-credit a { color: var(--text-secondary); text-decoration: none; }
 .app-credit a:hover { text-decoration: underline; }
+
+/* ============================================================
+   CLINICAL-DEPLOYMENT LAYER (v6) — accessibility, error states,
+   spoken-confirmation signature, comfort mode, interpreter gate.
+   ============================================================ */
+
+/* ---- Keyboard focus (WCAG 2.4.7) — visible everywhere, only for keyboard ---- */
+:focus-visible {
+  outline: 3px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+.pt-scope :focus-visible { outline-color: var(--care); }
+
+/* ---- Reduced motion, app-wide (previously pt-scope only) ---- */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ---- Text size control (Dynamic-Type stand-in; ≥200% patient text) ---- */
+html[data-textsize="lg"] {
+  --pt-text-hero: 38px; --pt-text-xl: 28px; --pt-text-lg: 23px; --pt-text-md: 19px;
+}
+html[data-textsize="xl"] {
+  --pt-text-hero: 46px; --pt-text-xl: 34px; --pt-text-lg: 28px; --pt-text-md: 23px;
+}
+html[data-textsize="lg"] .cmd-label { font-size: 16px; }
+html[data-textsize="xl"] .cmd-label { font-size: 19px; }
+html[data-textsize="lg"] .need-card .nc-label { font-size: 26px; }
+html[data-textsize="xl"] .need-card .nc-label { font-size: 30px; }
+
+/* ---- Toast (non-blocking notices; replaces alert()) ---- */
+.sb-toast {
+  position: fixed;
+  left: 50%; bottom: calc(84px + var(--safe-bottom));
+  transform: translateX(-50%) translateY(8px);
+  max-width: min(92vw, 400px);
+  background: var(--text-primary); color: var(--bg-elevated);
+  font-size: 14px; font-weight: 600; line-height: 1.4;
+  padding: 12px 18px; border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  z-index: 3000; text-align: center;
+}
+.sb-toast.visible { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ---- SIGNATURE: "Said aloud" confirmation ----
+   A deaf patient cannot hear the TTS. This banner is their proof the room
+   heard them: the exact sentence, large, with a sound wave that animates
+   while the speech is actually playing. */
+.spoken-banner {
+  position: sticky; top: 0; z-index: 6;
+  display: none;
+  align-items: flex-start; gap: var(--space-md);
+  background: var(--care); color: #fff;
+  border-radius: var(--pt-radius);
+  padding: var(--space-lg);
+  margin-bottom: var(--pt-gap);
+  box-shadow: 0 8px 24px rgba(14,147,132,0.35);
+}
+.spoken-banner.visible { display: flex; animation: pt-rise 0.28s var(--pt-spring); }
+.spoken-banner .sp-wave {
+  flex-shrink: 0; display: flex; align-items: center; gap: 3px;
+  height: 34px; margin-top: 2px;
+}
+.spoken-banner .sp-wave i {
+  width: 4px; border-radius: 2px; background: rgba(255,255,255,0.95);
+  height: 10px;
+}
+.spoken-banner.speaking .sp-wave i { animation: sp-wave 0.9s ease-in-out infinite; }
+.spoken-banner .sp-wave i:nth-child(2) { animation-delay: 0.15s; height: 20px; }
+.spoken-banner .sp-wave i:nth-child(3) { animation-delay: 0.3s; height: 28px; }
+.spoken-banner .sp-wave i:nth-child(4) { animation-delay: 0.45s; height: 16px; }
+@keyframes sp-wave { 0%,100% { transform: scaleY(0.5); } 50% { transform: scaleY(1.4); } }
+.spoken-banner .sp-body { flex: 1; min-width: 0; }
+.spoken-banner .sp-label {
+  font-size: 12px; font-weight: 800; text-transform: uppercase;
+  letter-spacing: 0.08em; opacity: 0.9; margin-bottom: 3px;
+}
+.spoken-banner .sp-text {
+  font-size: var(--pt-text-xl); font-weight: 800; line-height: 1.2;
+  letter-spacing: -0.2px; overflow-wrap: break-word;
+}
+.spoken-banner.novoice { background: var(--warning); box-shadow: 0 8px 24px rgba(217,119,6,0.35); }
+
+/* ---- Camera error panel (granular, recoverable) ---- */
+.cam-error {
+  position: absolute; inset: 0; z-index: 3;
+  display: none; flex-direction: column;
+  align-items: center; justify-content: center; gap: var(--space-md);
+  background: var(--pt-surface-2); padding: var(--space-xl);
+  text-align: center;
+}
+.cam-error.visible { display: flex; }
+.cam-error .ce-icon {
+  width: 56px; height: 56px; border-radius: 50%;
+  background: var(--warning-light); color: var(--warning);
+  display: flex; align-items: center; justify-content: center; font-size: 24px;
+}
+.cam-error .ce-title { font-size: var(--pt-text-lg); font-weight: 700; color: var(--text-primary); }
+.cam-error .ce-detail { font-size: var(--pt-text-md); color: var(--text-secondary); line-height: 1.45; max-width: 320px; }
+.cam-error .ce-retry {
+  min-height: 52px; padding: 0 var(--space-2xl);
+  border-radius: var(--pt-radius-sm); border: none;
+  background: var(--care); color: #fff;
+  font-family: var(--font); font-size: var(--pt-text-md); font-weight: 700; cursor: pointer;
+}
+.cam-error .ce-retry:active { background: var(--care-hover); }
+
+/* ---- Engine status banner (recognition down ≠ app down) ---- */
+.engine-banner {
+  display: none; align-items: flex-start; gap: var(--space-sm);
+  background: var(--warning-light); border: 1px solid #FDE68A;
+  color: var(--warning); border-radius: var(--pt-radius-sm);
+  padding: var(--space-md) var(--space-lg);
+  font-size: var(--pt-text-md); font-weight: 600; line-height: 1.4;
+  margin-bottom: var(--pt-gap);
+}
+.engine-banner.visible { display: flex; }
+[data-theme="dark"] .engine-banner { border-color: #92400E; }
+
+/* ---- Interpreter gate (high-stakes topics; ADA/§1557) ---- */
+.interp-gate {
+  display: none; gap: var(--space-md); align-items: flex-start; flex-wrap: wrap;
+  background: var(--danger-light); border: 1.5px solid #FCA5A5;
+  border-radius: var(--radius-lg); padding: var(--space-lg);
+  margin-bottom: var(--space-md);
+}
+.interp-gate.visible { display: flex; }
+.interp-gate .ig-text { min-width: 200px; }
+.interp-gate .ig-btn { width: 100%; padding: 12px 14px; }
+[data-theme="dark"] .interp-gate { border-color: #7F1D1D; }
+.interp-gate .ig-icon { font-size: 20px; flex-shrink: 0; }
+.interp-gate .ig-text { flex: 1; font-size: 12px; line-height: 1.5; color: var(--text-primary); }
+.interp-gate .ig-text strong { color: var(--danger); }
+.interp-gate .ig-btn {
+  flex-shrink: 0; padding: 10px 14px; border-radius: var(--radius-md);
+  border: none; background: var(--danger); color: #fff;
+  font-family: var(--font); font-size: 12px; font-weight: 700; cursor: pointer;
+}
+.interp-gate .ig-btn:active { filter: brightness(0.9); }
+
+/* ---- Comfort mode (PACU / groggy: 6 giant choices only) ---- */
+.comfort-toggle-row { display: flex; gap: var(--space-sm); margin-bottom: var(--pt-gap); }
+.comfort-toggle {
+  flex: 1; min-height: 48px;
+  display: flex; align-items: center; justify-content: center; gap: var(--space-sm);
+  border-radius: var(--pt-radius-sm);
+  border: 1.5px solid var(--border); background: var(--pt-surface);
+  font-family: var(--font); font-size: var(--pt-text-md); font-weight: 700;
+  color: var(--text-secondary); cursor: pointer;
+}
+.comfort-toggle.on { border-color: var(--care); background: var(--care-light); color: var(--care); }
+.pt-scope.comfort-on .spell-toggle,
+.pt-scope.comfort-on .spell-panel,
+.pt-scope.comfort-on .patient-transcript-box,
+.pt-scope.comfort-on .body-map-section,
+.pt-scope.comfort-on .clin-drawer,
+.pt-scope.comfort-on .yesno-row + .spell-toggle { display: none; }
+.pt-scope.comfort-on .need-card { min-height: 148px; }
+.pt-scope.comfort-on .need-card .nc-emoji { font-size: 40px; }
+.pt-scope.comfort-on .need-card .nc-label { font-size: 26px; }
+
+/* ---- Communication preference (first session; ADA primary consideration) ---- */
+.pref-overlay {
+  position: fixed; inset: 0; z-index: 2500;
+  background: var(--bg);
+  display: none; flex-direction: column; align-items: center; justify-content: center;
+  padding: var(--space-xl); text-align: center;
+}
+.pref-overlay.visible { display: flex; }
+.pref-overlay h2 {
+  font-size: clamp(24px, 6vw, 32px); font-weight: 800; letter-spacing: -0.5px;
+  color: var(--text-primary); margin-bottom: var(--space-sm); max-width: 480px;
+}
+.pref-overlay .po-sub {
+  font-size: 16px; color: var(--text-secondary); line-height: 1.5;
+  max-width: 420px; margin-bottom: var(--space-2xl);
+}
+.pref-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-md); width: min(92vw, 440px); }
+.pref-card {
+  display: flex; flex-direction: column; align-items: center; gap: var(--space-sm);
+  padding: var(--space-xl) var(--space-md);
+  background: var(--bg-elevated); border: 1.5px solid var(--border);
+  border-radius: var(--radius-lg); cursor: pointer;
+  font-family: var(--font); box-shadow: var(--shadow-md);
+  transition: transform 0.12s ease, border-color 0.15s ease;
+}
+.pref-card:active { transform: scale(0.97); border-color: var(--care); }
+.pref-card .pc-icon { font-size: 34px; }
+.pref-card .pc-label { font-size: 16px; font-weight: 700; color: var(--text-primary); line-height: 1.2; }
+.pref-card .pc-sub { font-size: 12px; color: var(--text-tertiary); line-height: 1.35; }
+.pref-card.interp { border-color: var(--care-muted); background: var(--care-light); }
+.pref-skip {
+  margin-top: var(--space-xl); background: none; border: none;
+  font-family: var(--font); font-size: 13px; font-weight: 600;
+  color: var(--text-tertiary); cursor: pointer; text-decoration: underline;
+}
+
+/* ---- Pain scale: Wong-Baker-style anchors (faces + numbers together) ---- */
+.pain-anchor-row {
+  display: flex; justify-content: space-between;
+  margin-top: var(--space-sm); padding: 0 2px;
+}
+.pain-anchor { display: flex; flex-direction: column; align-items: center; gap: 1px; }
+.pain-anchor .pa-face { font-size: 22px; line-height: 1; }
+.pain-anchor .pa-label { font-size: 10px; font-weight: 600; color: var(--text-tertiary); }
+
+/* ---- Bigger touch targets for severity dots (44pt floor) ---- */
+.severity-dot { width: 44px; height: 44px; font-size: 14px; }
+
+/* ---- High-contrast preference ---- */
+@media (prefers-contrast: more) {
+  :root { --border: #94A3B8; --border-strong: #64748B; --text-tertiary: #475569; }
+  [data-theme="dark"] { --border: #64748B; --border-strong: #94A3B8; --text-tertiary: #CBD5E1; }
+}
 </style>
 </head>
 <body>
 
-<div class="demo-badge">v5.1 DEMO</div>
+<div class="demo-badge" aria-hidden="true">v6.0</div>
 
 <div class="app" id="app">
   <!-- Top Nav -->
   <div class="top-nav">
     <h1>Sign<span class="brand-mark">Bridge</span></h1>
     <div class="nav-actions">
-      <button class="nav-btn emergency-nav" id="emergencyBtn" onclick="triggerEmergency()" title="Emergency ASL">⚠</button>
-      <button class="nav-btn" id="darkToggle" onclick="toggleDarkMode()" title="Toggle theme">☀️</button>
+      <button class="nav-btn emergency-nav" id="emergencyBtn" onclick="triggerEmergency()" title="Emergency" aria-label="Emergency — I need help now">⚠</button>
+      <button class="nav-btn" id="textSizeToggle" onclick="cycleTextSize()" title="Text size" aria-label="Change text size" style="font-weight:800;font-size:13px;">A</button>
+      <button class="nav-btn" id="darkToggle" onclick="toggleDarkMode()" title="Toggle theme" aria-label="Switch between light and dark theme">☀️</button>
     </div>
   </div>
 
   <!-- Connection Status Bar -->
-  <div class="conn-status-bar" id="connStatusBar">
+  <div class="conn-status-bar" id="connStatusBar" role="status" aria-label="System status">
     <div class="conn-chip" id="connCam"><span class="conn-dot"></span>Camera</div>
     <div class="conn-chip" id="connMic"><span class="conn-dot"></span>Mic</div>
     <div class="conn-chip" id="connEngine"><span class="conn-dot"></span>ASL Engine</div>
@@ -2069,11 +2295,11 @@ body {
 
   <!-- Mode Switcher -->
   <div class="mode-switcher">
-    <button class="mode-btn active" id="modeSend" onclick="switchMode('send')">
-      <span class="mode-icon">↓</span> Send ASL
+    <button class="mode-btn active" id="modeSend" onclick="switchMode('send')" aria-pressed="true">
+      <span class="mode-icon" aria-hidden="true">↓</span> Send ASL
     </button>
-    <button class="mode-btn" id="modeReceive" onclick="switchMode('receive')">
-      <span class="mode-icon">↑</span> Receive ASL
+    <button class="mode-btn" id="modeReceive" onclick="switchMode('receive')" aria-pressed="false">
+      <span class="mode-icon" aria-hidden="true">↑</span> Receive ASL
     </button>
   </div>
 
@@ -2083,14 +2309,23 @@ body {
     <!-- Commands Screen (with integrated voice) -->
     <div class="screen active" id="commandScreen">
       <div class="direction-banner send-asl">
-        <span>↓</span> You speak / tap → Patient sees ASL
+        <span aria-hidden="true">↓</span> You speak / tap → Patient sees ASL
+      </div>
+
+      <!-- Interpreter gate: appears on consent / diagnosis / discharge topics (ADA / §1557) -->
+      <div class="interp-gate" id="interpGate" role="alert">
+        <span class="ig-icon" aria-hidden="true">⚖️</span>
+        <div class="ig-text"><strong>A qualified interpreter is required for this conversation.</strong>
+          Consent, diagnosis, medication and discharge teaching must go through a qualified ASL
+          interpreter (on-site or VRI) — SignBridge can bridge the wait, not replace them.</div>
+        <button class="ig-btn" onclick="requestInterpreter('staff')">Log interpreter request</button>
       </div>
 
       <div class="search-bar">
         <span class="search-icon">⌕</span>
-        <input type="text" placeholder="Search perioperative phrases..." id="searchInput" oninput="filterCommands(this.value)">
-        <button class="mic-search-btn" id="micSearchBtn" onclick="toggleMic()" title="Voice search">
-          <span id="micSearchIcon">🎤</span>
+        <input type="text" placeholder="Search perioperative phrases..." id="searchInput" oninput="filterCommands(this.value)" aria-label="Search perioperative phrases">
+        <button class="mic-search-btn" id="micSearchBtn" onclick="toggleMic()" title="Voice search" aria-label="Voice search">
+          <span id="micSearchIcon" aria-hidden="true">🎤</span>
         </button>
       </div>
 
@@ -2168,14 +2403,36 @@ body {
   <!-- ===== RECEIVE ASL MODE SCREEN ===== -->
   <div class="patient-mode-container pt-scope" id="patientModeScreen">
 
+    <!-- 0a. "SAID ALOUD" CONFIRMATION — the deaf patient's proof the room heard them -->
+    <div class="spoken-banner" id="spokenBanner" role="status" aria-live="polite">
+      <div class="sp-wave" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+      <div class="sp-body">
+        <div class="sp-label" id="spokenLabel">Said aloud</div>
+        <div class="sp-text" id="spokenText"></div>
+      </div>
+    </div>
+
+    <!-- 0b. Recognition-engine status (recognition down ≠ app down) -->
+    <div class="engine-banner" id="engineBanner" role="status">
+      <span aria-hidden="true">⚠</span>
+      <span id="engineBannerText">Sign recognition could not load — the tap-to-communicate cards below still work.</span>
+    </div>
+
+    <!-- 0c. Comfort mode: PACU / groggy — only the essentials, extra large -->
+    <div class="comfort-toggle-row">
+      <button class="comfort-toggle" id="comfortToggle" onclick="toggleComfortMode()" aria-pressed="false">
+        <span aria-hidden="true">🌅</span> Comfort mode — big &amp; simple
+      </button>
+    </div>
+
     <!-- 1. SENTENCE BUILDER (sticky top) -->
     <div class="phrase-strip" id="phraseStrip">
       <div class="ps-words" id="phraseWords">
         <span class="ps-empty" id="phraseEmpty">Tap a need below, or sign to the camera…</span>
       </div>
       <div class="ps-actions">
-        <button class="ps-iconbtn" id="phraseBackspace" onclick="phraseBackspace()" title="Undo">⌫</button>
-        <button class="ps-iconbtn" id="phraseClear" onclick="phraseClear()" title="Clear">🗑</button>
+        <button class="ps-iconbtn" id="phraseBackspace" onclick="phraseBackspace()" title="Undo" aria-label="Remove last word">⌫</button>
+        <button class="ps-iconbtn" id="phraseClear" onclick="phraseClear()" title="Clear" aria-label="Clear sentence">🗑</button>
         <button class="ps-speak" id="phraseSpeak" onclick="phraseSpeak()" disabled>
           <svg viewBox="0 0 24 24"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 010 7"/><path d="M19 5a9 9 0 010 14"/></svg>
           Speak
@@ -2186,18 +2443,24 @@ body {
     <!-- 2. CAMERA / RECOGNITION (required IDs preserved) -->
     <div class="pt-cam patient-camera-card">
       <div class="patient-cam-viewport">
-        <video id="patientCamFeed" autoplay playsinline muted></video>
-        <canvas id="patientHandCanvas"></canvas>
-        <div class="sb-cam-letter"><div class="cl" id="sbCamLetterVal">–</div><div class="cc" id="sbCamLetterConf"></div></div>
-        <div class="patient-cam-overlay" id="patientCamOverlay" onclick="togglePatientCamera()">
-          <div class="cam-icon">👋</div>
+        <video id="patientCamFeed" autoplay playsinline muted aria-label="Live camera view for sign recognition"></video>
+        <canvas id="patientHandCanvas" aria-hidden="true"></canvas>
+        <div class="sb-cam-letter" aria-hidden="true"><div class="cl" id="sbCamLetterVal">–</div><div class="cc" id="sbCamLetterConf"></div></div>
+        <div class="patient-cam-overlay" id="patientCamOverlay" role="button" tabindex="0" aria-label="Start the camera to sign" onclick="togglePatientCamera()">
+          <div class="cam-icon" aria-hidden="true">👋</div>
           <div class="cam-text">Tap to start signing</div>
         </div>
+        <div class="cam-error" id="camError" role="alert">
+          <div class="ce-icon" aria-hidden="true">📷</div>
+          <div class="ce-title" id="camErrorTitle">Camera unavailable</div>
+          <div class="ce-detail" id="camErrorDetail"></div>
+          <button class="ce-retry" onclick="retryCamera()">Try again</button>
+        </div>
       </div>
-      <div class="hand-status" id="handStatus"><div class="dot"></div>Camera off</div>
-      <div class="landmark-count" id="landmarkCount"></div>
-      <div class="detected-sign" id="detectedSign"></div>
-      <div class="spelling-buffer" id="spellingBufferDisplay"></div>
+      <div class="hand-status" id="handStatus" role="status" aria-live="polite"><div class="dot"></div>Camera off</div>
+      <div class="landmark-count" id="landmarkCount" aria-hidden="true"></div>
+      <div class="detected-sign" id="detectedSign" role="status" aria-live="polite"></div>
+      <div class="spelling-buffer" id="spellingBufferDisplay" aria-live="polite" aria-label="Letters spelled so far"></div>
     </div>
 
     <!-- 3. CONFIRM CHIP ("did you mean?") — hidden until a sign is recognized -->
@@ -2246,12 +2509,17 @@ body {
 
     <!-- 8. Quick Pain Scale -->
     <div class="quick-pain-section">
-      <div class="quick-pain-title">Quick Pain Report</div>
+      <div class="quick-pain-title">How much pain? (0 = none, 10 = worst)</div>
       <div class="quick-pain-slider">
-        <span style="font-size:10px;color:var(--text-tertiary);">0</span>
-        <input type="range" id="quickPainSlider" min="0" max="10" value="0" oninput="updateQuickPain(this.value)">
-        <span style="font-size:10px;color:var(--text-tertiary);">10</span>
-        <div class="quick-pain-value" id="quickPainValue">0</div>
+        <span style="font-size:12px;font-weight:700;color:var(--text-tertiary);" aria-hidden="true">0</span>
+        <input type="range" id="quickPainSlider" min="0" max="10" value="0" oninput="updateQuickPain(this.value)" aria-label="Pain level from 0, no pain, to 10, worst pain">
+        <span style="font-size:12px;font-weight:700;color:var(--text-tertiary);" aria-hidden="true">10</span>
+        <div class="quick-pain-value" id="quickPainValue" aria-hidden="true">0</div>
+      </div>
+      <div class="pain-anchor-row" aria-hidden="true">
+        <div class="pain-anchor"><span class="pa-face">🙂</span><span class="pa-label">No pain</span></div>
+        <div class="pain-anchor"><span class="pa-face">😐</span><span class="pa-label">Moderate</span></div>
+        <div class="pain-anchor"><span class="pa-face">😖</span><span class="pa-label">Worst</span></div>
       </div>
       <button class="quick-pain-send" onclick="submitQuickPain()">Report Pain Level</button>
     </div>
@@ -2324,6 +2592,20 @@ body {
           ASL Recognition — a trained TensorFlow.js classifier reads 24 fingerspelling letters (A–Y, no J/Z) plus 8 medical signs (Help, Yes, No, Pain, Stop, Thank You, OK, Wait). A built-in fingerspelling model works out of the box; use the Teach panel below to add the medical gestures or fine-tune accuracy on your own webcam (saved on this device).
         </div>
 
+        <!-- Evidence-based staff communication tips (deaf-patient care) -->
+        <div class="ada-note" style="margin-top:0;margin-bottom:var(--space-md);">
+          <strong>Working with a Deaf patient — quick tips</strong><br>
+          • Ask their preferred communication method first and honor it (the law gives it primary consideration).<br>
+          • Face the patient, get attention before speaking, one speaker at a time. Don't rely on lip reading — most speech is not visible on the lips, and masks defeat it entirely.<br>
+          • Never use family members (especially children) as interpreters — prohibited under §1557.<br>
+          • Fingerspelling is slow and assumes English literacy; prefer the tap cards, writing, and the interpreter.<br>
+          • Before sedation: agree on yes/no signals (thumbs up/down, one blink = yes), rehearse the pain scale, and note where their glasses / hearing aids will be so they're returned immediately in PACU.<br>
+          • After important information, check understanding: ask them to show you, not just nod.
+        </div>
+
+        <!-- Interpreter request logging -->
+        <button class="teach-btn" style="width:100%;margin-bottom:var(--space-md);" onclick="requestInterpreter('clinician')">⚖️ Log an interpreter request (timestamped)</button>
+
         <!-- Teach / Train Panel (relocated verbatim) -->
         <div class="teach-card" id="teachCard">
           <div class="teach-header">
@@ -2391,13 +2673,13 @@ body {
   </div>
 
   <!-- Tab Bar (2 tabs) -->
-  <div class="tab-bar">
-    <div class="tab active" onclick="switchTab('commandScreen', this)">
-      <span class="tab-icon">☰</span>
+  <div class="tab-bar" role="tablist" aria-label="Send mode screens">
+    <div class="tab active" role="tab" tabindex="0" aria-selected="true" onclick="switchTab('commandScreen', this)">
+      <span class="tab-icon" aria-hidden="true">☰</span>
       <span class="tab-label">Commands</span>
     </div>
-    <div class="tab" onclick="switchTab('logScreen', this)">
-      <span class="tab-icon">≡</span>
+    <div class="tab" role="tab" tabindex="0" aria-selected="false" onclick="switchTab('logScreen', this)">
+      <span class="tab-icon" aria-hidden="true">≡</span>
       <span class="tab-label">Log</span>
     </div>
   </div>
@@ -2551,15 +2833,48 @@ body {
 </div>
 
 <!-- Emergency Modal -->
-<div class="emergency-modal" id="emergencyModal">
-  <div class="em-icon">⚠</div>
+<div class="emergency-modal" id="emergencyModal" role="alertdialog" aria-modal="true" aria-label="Emergency — I need help now">
+  <div class="em-icon" aria-hidden="true">⚠</div>
   <div class="em-text">EMERGENCY<br>I need help now</div>
   <div class="em-sub">This message is being displayed to all nearby staff</div>
   <button class="em-close" onclick="closeEmergency()">Dismiss</button>
 </div>
 
+<!-- Toast (non-blocking notices) -->
+<div class="sb-toast" id="sbToast" role="status" aria-live="polite"></div>
+
+<!-- Communication preference — first session (ADA "primary consideration") -->
+<div class="pref-overlay" id="prefOverlay" role="dialog" aria-modal="true" aria-labelledby="prefTitle">
+  <h2 id="prefTitle">How do you prefer to communicate?</h2>
+  <div class="po-sub">You have the right to a qualified ASL interpreter at no cost, for any conversation.
+    Your choice is logged so the care team can arrange it.</div>
+  <div class="pref-grid">
+    <button class="pref-card interp" onclick="prefChoose('interpreter')">
+      <span class="pc-icon" aria-hidden="true">🤟</span>
+      <span class="pc-label">ASL interpreter</span>
+      <span class="pc-sub">In person or video (VRI)</span>
+    </button>
+    <button class="pref-card" onclick="prefChoose('write')">
+      <span class="pc-icon" aria-hidden="true">✍️</span>
+      <span class="pc-label">Writing</span>
+      <span class="pc-sub">Paper or typed text</span>
+    </button>
+    <button class="pref-card" onclick="prefChoose('app')">
+      <span class="pc-icon" aria-hidden="true">📱</span>
+      <span class="pc-label">This app</span>
+      <span class="pc-sub">For quick, basic needs</span>
+    </button>
+    <button class="pref-card" onclick="prefChoose('mixed')">
+      <span class="pc-icon" aria-hidden="true">🔀</span>
+      <span class="pc-label">A mix</span>
+      <span class="pc-sub">Whatever works in the moment</span>
+    </button>
+  </div>
+  <button class="pref-skip" onclick="prefChoose('skipped')">Skip for now</button>
+</div>
+
 <!-- Demo FAB -->
-<button class="demo-fab" id="demoFab" onclick="startDemo()">▶</button>
+<button class="demo-fab" id="demoFab" onclick="startDemo()" aria-label="Start guided walkthrough">▶</button>
 
 <!-- Demo Tooltip -->
 <div class="demo-tooltip" id="demoTooltip">
@@ -2583,6 +2898,150 @@ let sessionLogEntries = [];
 let demoActive = false;
 let demoStep = 0;
 let voiceMatchedCmd = null;
+
+// ===== TOAST (non-blocking notices; replaces alert()) =====
+let _toastTimer = null;
+function toast(msg, ms) {
+  const el = document.getElementById('sbToast');
+  if(!el) return;
+  el.textContent = msg;
+  el.classList.add('visible');
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => el.classList.remove('visible'), ms || 3200);
+}
+
+// ===== "SAID ALOUD" CONFIRMATION =====
+// A deaf patient cannot hear the TTS — this banner is their visible proof the
+// message was voiced into the room (or a clear flag that it wasn't).
+let _spokenTimer = null;
+function announceSpoken(text, voiced) {
+  const banner = document.getElementById('spokenBanner');
+  const textEl = document.getElementById('spokenText');
+  const labelEl = document.getElementById('spokenLabel');
+  if(!banner || !textEl) return;
+  textEl.textContent = text;
+  banner.classList.toggle('novoice', !voiced);
+  banner.classList.toggle('speaking', !!voiced);
+  if(labelEl) labelEl.textContent = voiced ? 'Said aloud to the room' : 'Voice unavailable — show this screen to staff';
+  banner.classList.add('visible');
+  clearTimeout(_spokenTimer);
+  _spokenTimer = setTimeout(() => { banner.classList.remove('visible', 'speaking'); }, voiced ? 5000 : 9000);
+}
+function spokenDone() {
+  const banner = document.getElementById('spokenBanner');
+  if(banner) banner.classList.remove('speaking');
+}
+
+// ===== INTERPRETER REQUEST LOGGING (ADA / §1557 audit trail) =====
+function requestInterpreter(who) {
+  const t = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  addLogEntry('system', `INTERPRETER REQUESTED (${who || 'staff'}) at ${t} — qualified ASL interpreter / VRI`);
+  toast('Interpreter request logged at ' + t + '. Contact your interpreter service now.');
+}
+
+// ===== HIGH-STAKES TOPIC GATE =====
+// Consent / diagnosis / medication / discharge conversations legally require a
+// qualified interpreter. Surface the gate whenever staff enters those topics.
+const HIGH_STAKES_CATS = new Set(['Consent', 'Discharge']);
+const HIGH_STAKES_RE = /\b(consent|permission|sign here|risks|diagnos|discharge|prescri|medicat)/i;
+function updateInterpGate(context) {
+  const gate = document.getElementById('interpGate');
+  if(!gate) return;
+  const hot = (typeof context === 'string') &&
+    (HIGH_STAKES_CATS.has(context) || HIGH_STAKES_RE.test(context));
+  if(hot && !gate.classList.contains('visible')) {
+    gate.classList.add('visible');
+    addLogEntry('system', 'Interpreter-required topic opened: ' + context);
+  } else if(!hot) {
+    gate.classList.remove('visible');
+  }
+}
+
+// ===== COMFORT MODE (PACU / groggy: essentials only, extra large) =====
+const COMFORT_NEED_IDS = ['in_pain', 'nauseous', 'cold', 'thirsty', 'family', 'interpreter', 'bathroom', 'help_now'];
+let comfortOn = false;
+function toggleComfortMode() {
+  comfortOn = !comfortOn;
+  const scope = document.getElementById('patientModeScreen');
+  const btn = document.getElementById('comfortToggle');
+  if(scope) scope.classList.toggle('comfort-on', comfortOn);
+  if(btn) { btn.classList.toggle('on', comfortOn); btn.setAttribute('aria-pressed', String(comfortOn)); }
+  renderNeedGrid();
+  addLogEntry('system', comfortOn ? 'Comfort mode ON (reduced, extra-large choices)' : 'Comfort mode off');
+}
+
+// ===== TEXT SIZE (in-app Dynamic-Type stand-in; A → A+ → A++) =====
+const TEXT_SIZES = ['', 'lg', 'xl'];
+function cycleTextSize() {
+  const html = document.documentElement;
+  const cur = html.getAttribute('data-textsize') || '';
+  const next = TEXT_SIZES[(TEXT_SIZES.indexOf(cur) + 1) % TEXT_SIZES.length];
+  if(next) html.setAttribute('data-textsize', next); else html.removeAttribute('data-textsize');
+  try { localStorage.setItem('signbridge-textsize', next); } catch(e) {}
+  const btn = document.getElementById('textSizeToggle');
+  if(btn) btn.textContent = next === 'lg' ? 'A+' : next === 'xl' ? 'A++' : 'A';
+  toast(next === '' ? 'Standard text size' : next === 'lg' ? 'Large text' : 'Extra-large text', 1400);
+}
+(function restoreTextSize() {
+  try {
+    const saved = localStorage.getItem('signbridge-textsize');
+    if(saved) {
+      document.documentElement.setAttribute('data-textsize', saved);
+      setTimeout(() => {
+        const btn = document.getElementById('textSizeToggle');
+        if(btn) btn.textContent = saved === 'lg' ? 'A+' : saved === 'xl' ? 'A++' : 'A';
+      }, 0);
+    }
+  } catch(e) {}
+})();
+
+// ===== COMMUNICATION PREFERENCE (first session; ADA primary consideration) =====
+function maybeShowPrefOverlay() {
+  try {
+    if(localStorage.getItem('signbridge-comm-pref')) return;
+  } catch(e) {}
+  const o = document.getElementById('prefOverlay');
+  if(o) o.classList.add('visible');
+}
+function prefChoose(choice) {
+  try { localStorage.setItem('signbridge-comm-pref', choice); } catch(e) {}
+  const o = document.getElementById('prefOverlay');
+  if(o) o.classList.remove('visible');
+  const labels = {
+    interpreter: 'qualified ASL interpreter (in person / VRI)',
+    write: 'writing', app: 'this app for basic needs', mixed: 'a mix of methods', skipped: '(skipped)'
+  };
+  addLogEntry('system', 'Patient communication preference: ' + (labels[choice] || choice));
+  if(choice === 'interpreter') {
+    requestInterpreter('patient');
+  }
+}
+
+// ===== KEYBOARD SUPPORT for non-native controls (tabs, SVG zones, dots) =====
+document.addEventListener('keydown', (e) => {
+  if(e.key !== 'Enter' && e.key !== ' ') return;
+  const t = e.target;
+  if(t && (t.matches('[role="tab"], [role="button"]:not(button), .body-zone, .severity-dot'))) {
+    e.preventDefault();
+    t.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+  }
+});
+
+// Make the SVG body-map zones and severity dots reachable + labelled for
+// keyboard and VoiceOver users (applied once at startup).
+function initA11yRetrofits() {
+  document.querySelectorAll('.body-zone').forEach(z => {
+    z.setAttribute('role', 'button');
+    z.setAttribute('tabindex', '0');
+    const zone = z.getAttribute('data-zone') || '';
+    z.setAttribute('aria-label', 'Pain location: ' + zone.replace(/-/g, ' '));
+  });
+  document.querySelectorAll('.severity-dot').forEach((d, i) => {
+    d.setAttribute('role', 'button');
+    d.setAttribute('tabindex', '0');
+    d.setAttribute('aria-label', 'Pain severity ' + d.textContent.trim() + ' out of 10');
+  });
+}
 
 // ===== EMERGENCY =====
 function triggerEmergency() {
@@ -2904,17 +3363,20 @@ function init() {
   renderQuickPhrases();
   initSpeechRecognition();
   // Patient-facing UI (need cards + sentence strip).
-  try { renderNeedGrid(); } catch(e) {}
-  try { renderPhraseStrip(); } catch(e) {}
+  try { renderNeedGrid(); } catch(e) { console.error('needGrid render failed:', e); }
+  try { renderPhraseStrip(); } catch(e) { console.error('phraseStrip render failed:', e); }
+  try { initA11yRetrofits(); } catch(e) { console.error('a11y retrofit failed:', e); }
   switchMode('receive');   // boot straight into the patient/camera (Receive ASL) screen
-  addLogEntry('system', 'SignBridge v5.1 initialized');
+  addLogEntry('system', 'SignBridge v6.0 initialized');
+  try { maybeShowPrefOverlay(); } catch(e) {}
 }
 
 function switchTab(screenId, tabEl) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById(screenId).classList.add('active');
-  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => { t.classList.remove('active'); t.setAttribute('aria-selected', 'false'); });
   tabEl.classList.add('active');
+  tabEl.setAttribute('aria-selected', 'true');
 }
 
 function renderPills() {
@@ -2929,6 +3391,7 @@ function selectCategory(cat, el) {
   document.querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
   el.classList.add('active');
   renderCommands(cat);
+  updateInterpGate(cat);
 }
 
 // SVG icon picker based on command keywords
@@ -3025,6 +3488,7 @@ function filterCommands(query) {
 // ===== ASL OVERLAY (Ghost Hands) =====
 function showASLSign(phrase) {
   currentSigningPhrase = phrase;
+  updateInterpGate(phrase);   // consent/discharge phrasing raises the interpreter gate
   const overlay = document.getElementById('aslOverlay');
   const phraseText = document.getElementById('aslPhraseText');
   const progressBar = document.getElementById('aslProgressBar');
@@ -3349,7 +3813,7 @@ let captionRec = null, captionsOn = false;
 function toggleLiveCaptions() {
   if(captionsOn) { stopLiveCaptions(); return; }
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if(!SR) { alert('Live captions need Chrome or Edge (Web Speech API).'); return; }
+  if(!SR) { toast('Live captions aren\'t available on this device — use "Write to patient" instead.'); return; }
   const overlay = document.getElementById('aslOverlay');
   const phraseText = document.getElementById('aslPhraseText');
   stopEmergenceLoop(); stopFingerspell(); resetSignVideo();
@@ -3402,7 +3866,13 @@ function renderQuickPhrases() {
 // ===== SPEECH RECOGNITION (merged into search bar) =====
 function initSpeechRecognition() {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if(!SR) return;
+  if(!SR) {
+    // Web Speech recognition doesn't exist in this browser (e.g. iOS WKWebView).
+    // Hide the affordances that depend on it rather than failing silently on tap.
+    const mic = document.getElementById('micSearchBtn');
+    if(mic) mic.style.display = 'none';
+    return;
+  }
   recognition = new SR();
   recognition.continuous = false;
   recognition.interimResults = true;
@@ -3682,7 +4152,16 @@ async function initMediaPipeHands() {
     // If a saved classifier exists, load it now so we boot straight into inference.
     tryLoadSavedModel();
   } catch(e) {
-    console.warn('HandLandmarker init failed, retrying:', e);
+    initMediaPipeHands._fails = (initMediaPipeHands._fails || 0) + 1;
+    console.error('HandLandmarker init failed (attempt ' + initMediaPipeHands._fails + '):', e);
+    if(initMediaPipeHands._fails >= 4) {
+      // Give up loudly: recognition down ≠ app down. The tap cards keep working.
+      if(statusEl) statusEl.innerHTML = '<div class="dot"></div>Sign recognition unavailable';
+      const banner = document.getElementById('engineBanner');
+      if(banner) banner.classList.add('visible');
+      addLogEntry('system', 'Hand-tracking engine failed to load after 4 attempts');
+      return;
+    }
     if(statusEl) statusEl.innerHTML = '<div class="dot"></div>Hand model loading…';
     setTimeout(initMediaPipeHands, 2000);
   }
@@ -4237,7 +4716,15 @@ async function tryLoadSavedModel() {
     updateTeachStatus('Built-in fingerspelling model active (A–Y). Use the Teach panel to add the medical gestures or improve accuracy.', 'ok');
     const statusEl = document.getElementById('handStatus');
     if(statusEl && !cameraActive) statusEl.innerHTML = '<div class="dot"></div>Fingerspelling model ready — start camera to recognize';
-  } catch(e) { /* no bundled model either — Teach panel will prompt to train */ }
+  } catch(e) {
+    // No user model and the bundled model failed to load — say so instead of
+    // silently leaving recognition dead. Tap-to-communicate is unaffected.
+    console.error('Bundled recognition model failed to load:', e);
+    const banner = document.getElementById('engineBanner');
+    const bt = document.getElementById('engineBannerText');
+    if(bt) bt.textContent = 'The sign-recognition model could not load — the tap-to-communicate cards below still work. Restarting the app usually fixes this.';
+    if(banner) banner.classList.add('visible');
+  }
 }
 
 function teachUseModel() {
@@ -4543,6 +5030,47 @@ function showDetection(item) {
 }
 
 // ===== PATIENT CAMERA (single implementation) =====
+function showCamError(title, detail) {
+  const panel = document.getElementById('camError');
+  const t = document.getElementById('camErrorTitle');
+  const d = document.getElementById('camErrorDetail');
+  if(t) t.textContent = title;
+  if(d) d.textContent = detail;
+  if(panel) panel.classList.add('visible');
+  const overlay = document.getElementById('patientCamOverlay');
+  if(overlay) overlay.classList.add('hidden');
+}
+function hideCamError() {
+  const panel = document.getElementById('camError');
+  if(panel) panel.classList.remove('visible');
+}
+function retryCamera() {
+  hideCamError();
+  const overlay = document.getElementById('patientCamOverlay');
+  if(overlay) overlay.classList.remove('hidden');
+  togglePatientCamera();
+}
+// Map getUserMedia failures to specific, recoverable guidance instead of one
+// generic "denied" message — on a shared clinical device every one of these
+// happens, and each has a different fix.
+function describeCameraError(err) {
+  const name = (err && err.name) || '';
+  if(!window.isSecureContext && location.protocol !== 'file:') {
+    return ['Camera blocked by the browser', 'The camera only works over HTTPS (or in the installed app). Open the secure version of this page.'];
+  }
+  switch(name) {
+    case 'NotAllowedError': case 'PermissionDeniedError':
+      return ['Camera permission needed', 'Allow camera access in Settings for SignBridge (or the browser site permissions), then try again. Video never leaves this device.'];
+    case 'NotFoundError': case 'DevicesNotFoundError':
+      return ['No camera found', 'This device has no usable camera. The tap-to-communicate cards below work without one.'];
+    case 'NotReadableError': case 'TrackStartError':
+      return ['Camera is busy', 'Another app is using the camera. Close it (video call, camera app) and try again.'];
+    case 'OverconstrainedError':
+      return ['Camera mode unsupported', 'The front camera could not start in the requested mode. Trying again usually works.'];
+    default:
+      return ['Camera could not start', (err && err.message) ? String(err.message) : 'An unknown camera error occurred. Try again, or use the tap cards below.'];
+  }
+}
 function togglePatientCamera() {
   if(cameraActive) {
     stopPatientCamera();
@@ -4552,8 +5080,15 @@ function togglePatientCamera() {
   const status = document.getElementById('handStatus');
   const overlay = document.getElementById('patientCamOverlay');
   status.innerHTML = '<div class="dot"></div>Starting camera...';
+  hideCamError();
 
-  navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: 640, height: 480 } })
+  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    showCamError('Camera not supported here', 'This browser does not allow camera access. The tap-to-communicate cards below still work.');
+    status.innerHTML = '<div class="dot"></div>Camera unavailable';
+    return;
+  }
+
+  navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: 640, height: 480 }, audio: false })
     .then(stream => {
       video.srcObject = stream;
       overlay.classList.add('hidden');
@@ -4570,8 +5105,12 @@ function togglePatientCamera() {
       if(video.readyState >= 2) beginLoop();
       else video.addEventListener('loadeddata', beginLoop, { once: true });
     })
-    .catch(() => {
-      status.innerHTML = '<div class="dot"></div>Camera denied — check permissions';
+    .catch((err) => {
+      console.error('getUserMedia failed:', err && err.name, err && err.message);
+      const [title, detail] = describeCameraError(err);
+      showCamError(title, detail);
+      status.innerHTML = '<div class="dot"></div>Camera unavailable';
+      addLogEntry('system', 'Camera failed to start: ' + ((err && err.name) || 'unknown'));
     });
 }
 
@@ -4583,7 +5122,8 @@ function stopPatientCamera() {
     video.srcObject.getTracks().forEach(t => t.stop());
     video.srcObject = null;
   }
-  cameraActive = false;
+  hideCamError();
+  updateCamLetter(null);
   document.getElementById('patientCamOverlay').classList.remove('hidden');
   document.getElementById('handStatus').className = 'hand-status';
   document.getElementById('handStatus').innerHTML = '<div class="dot"></div>Camera off';
@@ -4627,7 +5167,7 @@ function clearLog() { sessionLogEntries = []; renderLog(); }
 
 function downloadTranscript() {
   if(sessionLogEntries.length === 0) {
-    alert('No session data to download yet.');
+    toast('No session data to download yet.');
     return;
   }
   const now = new Date();
@@ -4640,7 +5180,7 @@ function downloadTranscript() {
   txt += `Date: ${dateStr}\n`;
   txt += `Time: ${timeStr}\n`;
   txt += `Entries: ${sessionLogEntries.length}\n`;
-  txt += `Tool: SignBridge v1.0 — Perioperative ASL Communication\n`;
+  txt += `Tool: SignBridge v6.0 — Perioperative ASL Communication (communication aid — not a qualified interpreter)\n`;
   txt += `Team: Adrian Williams, Jasmine Miller M.D., Myca-Lee McComie\n`;
   txt += '─'.repeat(50) + '\n\n';
 
@@ -4686,6 +5226,8 @@ function switchMode(mode) {
     patientScreen.classList.add('active');
     sendBtn.classList.remove('active');
     receiveBtn.classList.add('active');
+    sendBtn.setAttribute('aria-pressed', 'false');
+    receiveBtn.setAttribute('aria-pressed', 'true');
     if(demoFab) demoFab.style.display = 'none';
     if(demoBadge) demoBadge.style.display = 'none';
     addLogEntry('system', 'Switched to Receive ASL');
@@ -4694,6 +5236,8 @@ function switchMode(mode) {
     patientScreen.classList.remove('active');
     sendBtn.classList.add('active');
     receiveBtn.classList.remove('active');
+    sendBtn.setAttribute('aria-pressed', 'true');
+    receiveBtn.setAttribute('aria-pressed', 'false');
     if(demoFab) demoFab.style.display = '';
     if(demoBadge) demoBadge.style.display = '';
     if(cameraActive) stopPatientCamera();
@@ -4760,8 +5304,14 @@ function renderPatientTranscript() {
    ============================================================ */
 
 // ----- Plain-language TTS (mirrors speakPhrase() pattern) -----
+// Every patient utterance gets a VISIBLE confirmation ("said aloud") — the
+// patient can't hear the speech, so the screen must prove it happened.
 function speakPatient(text) {
-  if(!('speechSynthesis' in window) || !text) return;
+  if(!text) return;
+  if(!('speechSynthesis' in window)) {
+    announceSpoken(text, false);   // no voice: turn the screen into the message
+    return;
+  }
   try {
     speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(text);
@@ -4769,8 +5319,14 @@ function speakPatient(text) {
     const voices = speechSynthesis.getVoices();
     const match = voices.find(v => v.lang && v.lang.startsWith('en'));
     if(match) u.voice = match;
+    u.onend = spokenDone;
+    u.onerror = () => { spokenDone(); announceSpoken(text, false); };
+    announceSpoken(text, true);
     speechSynthesis.speak(u);
-  } catch(e) { /* best-effort */ }
+  } catch(e) {
+    console.warn('TTS failed:', e);
+    announceSpoken(text, false);
+  }
 }
 
 // ----- Priority escalation (emergency/urgent) -----
@@ -4830,11 +5386,13 @@ function phraseSpeak() {
       const voices = speechSynthesis.getVoices();
       const match = voices.find(v => v.lang && v.lang.startsWith('en'));
       if(match) u.voice = match;
-      u.onend = () => { if(btn) btn.classList.remove('speaking'); };
-      u.onerror = () => { if(btn) btn.classList.remove('speaking'); };
+      u.onend = () => { if(btn) btn.classList.remove('speaking'); spokenDone(); };
+      u.onerror = () => { if(btn) btn.classList.remove('speaking'); spokenDone(); announceSpoken(sentence, false); };
+      announceSpoken(sentence, true);
       speechSynthesis.speak(u);
-    } catch(e) { if(btn) btn.classList.remove('speaking'); }
+    } catch(e) { if(btn) btn.classList.remove('speaking'); announceSpoken(sentence, false); }
   } else {
+    announceSpoken(sentence, false);
     setTimeout(() => { if(btn) btn.classList.remove('speaking'); }, 800);
   }
   addLogEntry('sign', 'Patient sentence: "' + sentence + '"');
@@ -4850,12 +5408,17 @@ function escapeHtml(s) {
 function renderNeedGrid() {
   const grid = document.getElementById('needGrid');
   if(!grid) return;
-  grid.innerHTML = patientNeeds.map((n, i) => {
+  // Comfort mode (PACU/groggy): only the essential needs, rendered extra large.
+  const items = comfortOn
+    ? patientNeeds.filter(n => COMFORT_NEED_IDS.includes(n.id))
+    : patientNeeds;
+  grid.innerHTML = items.map((n) => {
+    const i = patientNeeds.indexOf(n);
     const cls = 'need-card' +
       (n.priority === 'emergency' ? ' emergency' : '') +
       (n.priority === 'urgent' ? ' urgent' : '');
-    return `<button class="${cls}" data-need="${i}" onclick="needTap(${i})">
-      <span class="nc-emoji">${n.icon}</span>
+    return `<button class="${cls}" data-need="${i}" onclick="needTap(${i})" aria-label="${escapeHtml(n.phrase)}">
+      <span class="nc-emoji" aria-hidden="true">${n.icon}</span>
       <span class="nc-label">${escapeHtml(n.label)}</span>
     </button>`;
   }).join('');
@@ -5163,7 +5726,7 @@ function submitQuickPain() {
 // ===== CLINICAL NOTE GENERATOR =====
 function generateClinicalNote() {
   if(sessionLogEntries.length === 0) {
-    alert('No session data to generate a note from.');
+    toast('No session data to generate a note from.');
     return;
   }
 
@@ -5194,7 +5757,8 @@ function generateClinicalNote() {
   note += '║   SIGNBRIDGE — Clinical Communication Note   ║\n';
   note += '╚══════════════════════════════════════════════╝\n\n';
   note += `Date: ${dateStr}  |  Time: ${timeStr}\n`;
-  note += `Provider Tool: SignBridge v5.1 (ASL + Voice)\n`;
+  note += `Provider Tool: SignBridge v6.0 (ASL + Voice)\n`;
+  note += `NOTE: Communication aid only — not a qualified interpreter. Interpreter requests, if any, are timestamped below.\n`;
   note += `Session Duration: ${entries.length} logged interactions\n`;
   note += '─'.repeat(50) + '\n\n';
 
