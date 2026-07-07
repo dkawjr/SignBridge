@@ -8,8 +8,7 @@
   },
   "ios": {
     "backgroundColor": "#ffffff",
-    "contentInset": "always",
-    "limitsNavigationsToAppBoundDomains": true
+    "contentInset": "always"
   },
   "plugins": {
     "CapacitorHttp": {

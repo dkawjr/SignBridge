@@ -49,8 +49,15 @@ npx cap open ios       # opens the project in Xcode
 In Xcode:
 1. Select the **App** target → **Signing & Capabilities** → check **Automatically manage signing**, pick your
    **Team** (your Apple Developer account). Confirm **Bundle Identifier** = `com.dkawjr.signbridge`.
-2. Set **Deployment target** to iOS 14.0+ (needed for in-WebView camera). Set version (1.0.0) and build (1).
-3. Pick a real device or "Any iOS Device (arm64)". **Product → Archive**.
+2. Set **Deployment target** to iOS 15.0 (Capacitor 8 floor; in-WebView camera needs ≥14.3 so this covers it).
+   Set version (1.0.0) and build (1).
+3. **Add the privacy manifest to the target (one drag, required since May 2024):** in the Project navigator,
+   right-click the `App/App` group → *Add Files to "App"* → select `App/App/PrivacyInfo.xcprivacy` (already in
+   the repo: declares no tracking, no data collected, UserDefaults reason `CA92.1`) → make sure **App** target
+   is checked. Build once to confirm it's bundled.
+4. Export compliance is pre-answered: `ITSAppUsesNonExemptEncryption = false` is already in Info.plist
+   (fully offline app, OS-provided TLS only), so App Store Connect won't ask on each build.
+5. Pick a real device or "Any iOS Device (arm64)". **Product → Archive**.
 4. When the Organizer opens: **Distribute App → App Store Connect → Upload**.
 5. In **App Store Connect** (appstoreconnect.apple.com): create the app record, fill the listing (use
    `STORE_LISTING.md`), attach the build, complete **App Privacy** (answers below), add **Review notes**
@@ -60,10 +67,26 @@ In Xcode:
 on-device; nothing is recorded, stored off-device, or transmitted. (The camera feed never leaves the phone.)
 
 **Review notes to paste (heads off rejections):**
-> SignBridge is an accessibility/communication tool that recognizes American Sign Language fingerspelling
-> entirely on-device using a bundled TensorFlow.js + MediaPipe model. The camera is used only for live hand
-> tracking; no video is recorded, stored, or transmitted, and the app makes no network calls. There is no
-> account or login. Camera permission is requested with a clear purpose string.
+> SignBridge is a fully offline accessibility/communication tool: on-device ASL fingerspelling recognition
+> (TensorFlow.js + MediaPipe running locally in the app's WebView) with text-to-speech output. It is not a
+> medical device and makes no diagnostic or treatment claims.
+> No accounts or login. No network calls at runtime (verifiable via proxy); no analytics or third-party SDKs;
+> nothing stored except UI preferences in localStorage.
+> The camera is used solely for live hand-landmark detection; frames are never recorded, saved, or transmitted.
+> All functionality is bundled — the WebView loads only local files (guideline 2.5.2: no remote code).
+> Native capabilities used: camera capture, on-device ML, speech synthesis, offline operation — the app cannot
+> function as a website (guideline 4.2 minimum functionality).
+> Reviewers who don't sign can test with any ASL fingerspelling alphabet chart held up to the camera, or use
+> the tap-to-communicate board, which requires no signing at all.
+
+**Attach a demo video** (unlisted YouTube/Drive link in the review notes): 60–90 s showing launch → camera
+permission prompt → live fingerspelling recognized → TTS speaking the result, recorded **in airplane mode**.
+Reviewers often can't sign; without a video they may reject as "doesn't work."
+
+**Accessibility Nutrition Labels** (App Store Connect → App Accessibility): declare **VoiceOver**,
+**Larger Text** (in-app A/A+/A++ control), **Dark Interface**, and **Sufficient Contrast** — all four are
+implemented and should be spot-verified on device before declaring. For an app aimed at deaf users, an empty
+accessibility label undermines the listing.
 
 > ⚠️ **Camera on a real device:** the in-WebView camera works on iOS 14.3+. Always test **Archive builds on a
 > physical iPhone** (the Simulator has no camera).

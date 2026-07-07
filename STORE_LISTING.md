@@ -27,9 +27,12 @@ recorded, saved, or sent anywhere. No account, no tracking, no ads.
 
 Features:
 - Real-time ASL fingerspelling recognition (A–Y) with on-device hand tracking
-- Builds recognized letters into words and reads them aloud
+- Builds recognized letters into words and reads them aloud — with a visible "said aloud" confirmation so a deaf user always knows their message was voiced
+- Tap-to-communicate board: common needs (pain, help, water, interpreter, family…) spoken with one tap — no signing or camera required
+- Comfort mode: a reduced, extra-large layout for tired or recovering users
+- Pain scale with face anchors and a tappable body map
+- Adjustable text size, dark mode, VoiceOver-friendly labels
 - Works fully offline — nothing leaves your device
-- Simple, high-contrast, accessible interface
 - Optional: teach it your own hand shapes, stored only on your device
 
 SignBridge is an assistive communication aid, not a medical device, and is not a substitute for a qualified
