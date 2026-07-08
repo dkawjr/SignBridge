@@ -15,9 +15,12 @@ feed ends.
 
 ## Data we collect
 **None.** SignBridge has no accounts, no login, no analytics, no advertising, and no tracking. It makes no
-network connections in normal use. Any settings or optional custom gestures you create are stored **only in
-your device's local browser storage** and never leave your device. You can clear them at any time from within
-the app or your device settings.
+network connections in normal use. Any settings, optional custom gestures, or sign videos you record or import
+are stored **only in your device's local browser storage** and never leave your device. You can clear them at
+any time from within the app or your device settings.
+
+The app offers optional links to third-party ASL dictionary websites (e.g., SignASL.org). These open in your
+browser; visiting them is subject to those sites' own privacy policies. The app itself sends them nothing.
 
 ## Data we share
 **None.** Because we collect no data, there is nothing to share or sell.

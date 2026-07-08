@@ -1,7 +1,7 @@
 /* SignBridge service worker — installable PWA + offline.
    Cache-first with runtime caching so the app works with no network after first load.
    (Not used inside the native app — registration is guarded by !window.Capacitor.) */
-const CACHE = 'signbridge-v1';
+const CACHE = 'signbridge-v2';
 const CORE = [
   './', './index.html', './manifest.webmanifest',
   './model/model.json', './model/weights.bin', './model/labels.json',

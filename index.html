@@ -2671,6 +2671,40 @@ html[data-textsize="xl"] .need-card .nc-label { font-size: 30px; }
           </div>
         </div>
 
+        <!-- Sign Video Library: owned whole-sign clips so common words are SIGNED, not fingerspelled -->
+        <div class="teach-card" id="clipCard">
+          <div class="teach-header">
+            <div class="teach-title">🎬 Sign Video Library</div>
+            <button class="teach-toggle" id="clipToggle" onclick="toggleClipPanel()">Open</button>
+          </div>
+          <div class="teach-body">
+            <div class="teach-status" id="clipStatus">No clips yet — record or import a video per word.</div>
+            <div class="teach-hint">
+              Common words play a <strong>real signed video</strong> instead of fingerspelling.
+              Look the sign up online (links below), then <strong>record yourself or your interpreter</strong>
+              performing it — that clip is yours, stays on this device, and plays automatically whenever the
+              word appears in a phrase. Only import videos you have the rights to.
+            </div>
+            <div class="teach-row">
+              <input id="clipWord" placeholder="word, e.g. water" autocapitalize="none"
+                     style="flex:1;min-width:0;padding:10px 12px;border-radius:10px;border:1px solid var(--border);background:var(--bg-elevated);color:var(--text-primary);font-size:15px;"
+                     oninput="clipLookupLinks()">
+            </div>
+            <div class="teach-row" id="clipLookupRow" style="display:none;">
+              <a id="clipLookupAsl" class="teach-btn" target="_blank" rel="noopener noreferrer" style="text-decoration:none;text-align:center;">👀 SignASL.org ↗</a>
+              <a id="clipLookupSavvy" class="teach-btn" target="_blank" rel="noopener noreferrer" style="text-decoration:none;text-align:center;">👀 SigningSavvy ↗</a>
+            </div>
+            <div class="teach-row">
+              <button class="teach-btn primary" id="clipRecBtn" onclick="clipRecordToggle()">⏺ Record sign (max 6s)</button>
+              <button class="teach-btn" onclick="document.getElementById('clipImportFile').click()">⬆ Import video</button>
+              <input type="file" id="clipImportFile" accept="video/*" style="display:none" onchange="clipImport(event)">
+            </div>
+            <video id="clipPreview" playsinline muted loop style="display:none;width:100%;max-width:280px;border-radius:14px;margin:8px auto;background:var(--bg-elevated);"></video>
+            <div class="teach-divider"></div>
+            <div id="clipList"></div>
+          </div>
+        </div>
+
         <!-- SOAP note + transcript download -->
         <div class="teach-row" style="display:flex;gap:var(--space-sm);">
           <button class="teach-btn" onclick="generateClinicalNote()">📝 SOAP note</button>
@@ -3547,7 +3581,7 @@ function setSignDictLink(phrase) {
   if(!a) return;
   const kw = signKeyword(phrase);
   if(!kw) { a.style.display = 'none'; return; }
-  a.href = 'https://www.signingsavvy.com/sign/' + encodeURIComponent(kw.toUpperCase());
+  a.href = 'https://www.signasl.org/sign/' + encodeURIComponent(kw);   // free, multiple real signers per word
   a.style.display = 'inline-flex';
 }
 function playSignVideo(src) {
@@ -3566,6 +3600,142 @@ function resetSignVideo() {
   if(host) host.style.display = 'flex';
   if(letterEl) letterEl.style.display = '';
 }
+
+// ===== SIGN VIDEO LIBRARY (owned clips: recorded/imported, stored on-device in IndexedDB) =====
+// Feeds the signVideos map above, so any phrase whose keyword has a clip plays the real sign
+// instead of fingerspelling. Clips never leave the device (same privacy story as everything else).
+function clipDb() {
+  return new Promise((res, rej) => {
+    const rq = indexedDB.open('signbridge-clips', 1);
+    rq.onupgradeneeded = () => rq.result.createObjectStore('clips', { keyPath: 'word' });
+    rq.onsuccess = () => res(rq.result);
+    rq.onerror = () => rej(rq.error);
+  });
+}
+async function clipPut(word, blob) {
+  const db = await clipDb();
+  await new Promise((res, rej) => {
+    const tx = db.transaction('clips', 'readwrite');
+    tx.objectStore('clips').put({ word, blob, type: blob.type, addedAt: Date.now() });
+    tx.oncomplete = res; tx.onerror = () => rej(tx.error);
+  });
+}
+async function clipRemove(word) {
+  const db = await clipDb();
+  await new Promise((res, rej) => {
+    const tx = db.transaction('clips', 'readwrite');
+    tx.objectStore('clips').delete(word);
+    tx.oncomplete = res; tx.onerror = () => rej(tx.error);
+  });
+  if(signVideos[word]) { URL.revokeObjectURL(signVideos[word]); delete signVideos[word]; }
+  await loadSignClips();
+}
+function clipAll() {
+  return clipDb().then(db => new Promise((res, rej) => {
+    const rq = db.transaction('clips', 'readonly').objectStore('clips').getAll();
+    rq.onsuccess = () => res(rq.result || []);
+    rq.onerror = () => rej(rq.error);
+  }));
+}
+async function loadSignClips() {
+  let rows = [];
+  try { rows = await clipAll(); } catch(e) { return; }
+  for (const r of rows) {
+    if (signVideos[r.word]) URL.revokeObjectURL(signVideos[r.word]);
+    signVideos[r.word] = URL.createObjectURL(r.blob);
+  }
+  const list = document.getElementById('clipList'), status = document.getElementById('clipStatus');
+  if (status) status.textContent = rows.length
+    ? rows.length + ' clip' + (rows.length > 1 ? 's' : '') + ' saved — these words play as real signs.'
+    : 'No clips yet — record or import a video per word.';
+  if (!list) return;
+  list.innerHTML = '';
+  rows.sort((a, b) => a.word.localeCompare(b.word)).forEach(r => {
+    const row = document.createElement('div');
+    row.className = 'teach-row';
+    row.style.alignItems = 'center';
+    const name = document.createElement('span');
+    name.textContent = '🎬 ' + r.word;
+    name.style.cssText = 'flex:1;font-weight:600;';
+    const play = document.createElement('button');
+    play.className = 'teach-btn'; play.textContent = '▶';
+    play.setAttribute('aria-label', 'Preview sign for ' + r.word);
+    play.onclick = () => {
+      const prev = document.getElementById('clipPreview');
+      if (prev) { prev.src = signVideos[r.word]; prev.style.display = 'block'; prev.loop = true; prev.play().catch(() => {}); }
+    };
+    const del = document.createElement('button');
+    del.className = 'teach-btn danger'; del.textContent = '🗑';
+    del.setAttribute('aria-label', 'Delete sign for ' + r.word);
+    del.onclick = () => { if (confirm('Delete the "' + r.word + '" clip?')) clipRemove(r.word); };
+    row.append(name, play, del);
+    list.appendChild(row);
+  });
+}
+function toggleClipPanel() {
+  const card = document.getElementById('clipCard'), btn = document.getElementById('clipToggle');
+  if (!card) return;
+  card.classList.toggle('expanded');
+  if (btn) btn.textContent = card.classList.contains('expanded') ? 'Close' : 'Open';
+}
+function clipWordVal() {
+  const el = document.getElementById('clipWord');
+  return el ? el.value.toLowerCase().replace(/[^a-z\s'-]/g, '').trim() : '';
+}
+function clipLookupLinks() {
+  const w = clipWordVal(), row = document.getElementById('clipLookupRow');
+  if (!row) return;
+  if (!w) { row.style.display = 'none'; return; }
+  row.style.display = 'flex';
+  const asl = document.getElementById('clipLookupAsl'), savvy = document.getElementById('clipLookupSavvy');
+  if (asl) asl.href = 'https://www.signasl.org/sign/' + encodeURIComponent(w.replace(/\s+/g, '-'));
+  if (savvy) savvy.href = 'https://www.signingsavvy.com/search/' + encodeURIComponent(w.toUpperCase());
+}
+async function clipImport(ev) {
+  const f = ev.target.files && ev.target.files[0];
+  ev.target.value = '';
+  if (!f) return;
+  const word = clipWordVal();
+  if (!word) { alert('Type the word first (e.g., water), then import its video.'); return; }
+  if (f.size > 25 * 1024 * 1024) { alert('Video too large (max 25 MB). Trim it to a few seconds.'); return; }
+  await clipPut(word, f);
+  await loadSignClips();
+  addLogEntry('cmd', 'Sign clip imported: ' + word);
+  const prev = document.getElementById('clipPreview');
+  if (prev) { prev.src = signVideos[word]; prev.style.display = 'block'; prev.loop = true; prev.play().catch(() => {}); }
+}
+let clipRec = null, clipStream = null, clipChunks = [];
+async function clipRecordToggle() {
+  const btn = document.getElementById('clipRecBtn'), prev = document.getElementById('clipPreview');
+  if (clipRec && clipRec.state === 'recording') { clipRec.stop(); return; }
+  const word = clipWordVal();
+  if (!word) { alert('Type the word first (e.g., water), then record its sign.'); return; }
+  if (!window.MediaRecorder) { alert('Recording is not supported in this browser — use Import instead.'); return; }
+  try {
+    clipStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: 640, height: 480 }, audio: false });
+  } catch (e) { alert('Camera unavailable: ' + (e && e.message ? e.message : e)); return; }
+  if (prev) { prev.srcObject = clipStream; prev.style.display = 'block'; prev.muted = true; prev.play().catch(() => {}); }
+  const mime = ['video/mp4', 'video/webm;codecs=vp9', 'video/webm'].find(t => MediaRecorder.isTypeSupported(t)) || '';
+  clipChunks = [];
+  clipRec = new MediaRecorder(clipStream, mime ? { mimeType: mime } : undefined);
+  clipRec.ondataavailable = e => { if (e.data && e.data.size) clipChunks.push(e.data); };
+  clipRec.onstop = async () => {
+    const rec = clipRec; clipRec = null;
+    clipStream.getTracks().forEach(t => t.stop()); clipStream = null;
+    if (btn) btn.textContent = '⏺ Record sign (max 6s)';
+    if (prev) prev.srcObject = null;
+    const blob = new Blob(clipChunks, { type: (rec && rec.mimeType) || 'video/webm' });
+    if (blob.size < 2000) { if (prev) prev.style.display = 'none'; return; }   // aborted/empty
+    await clipPut(word, blob);
+    await loadSignClips();
+    addLogEntry('cmd', 'Sign clip recorded: ' + word);
+    if (prev) { prev.src = signVideos[word]; prev.loop = true; prev.play().catch(() => {}); }
+  };
+  clipRec.start();
+  if (btn) btn.textContent = '⏹ Stop & save';
+  setTimeout(() => { if (clipRec && clipRec.state === 'recording') clipRec.stop(); }, 6000);
+}
+loadSignClips();   // boot: hydrate signVideos from IndexedDB
 
 // ===== REAL ASL FINGERSPELLING PLAYER (data-derived handshapes) =====
 // Replaces the old generic "ghost hands". Each letter is drawn from a real handshape

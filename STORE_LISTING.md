@@ -32,6 +32,8 @@ Features:
 - Comfort mode: a reduced, extra-large layout for tired or recovering users
 - Pain scale with face anchors and a tappable body map
 - Adjustable text size, dark mode, VoiceOver-friendly labels
+- Sign Video Library: record whole-sign videos (yourself or your interpreter) so common words play as
+  real signs instead of fingerspelling — with built-in links to online ASL dictionaries to learn each sign
 - Works fully offline — nothing leaves your device
 - Optional: teach it your own hand shapes, stored only on your device
 
