@@ -40,4 +40,15 @@ if (leftover.length) {
 writeFileSync('www/index.html', html);
 cpSync('model', 'www/model', { recursive: true });
 cpSync('vendor', 'www/vendor', { recursive: true });
+
+// PWA files (installable + offline). Harmless in the native build — the SW is guarded
+// off by !window.Capacitor — but keeps www/ a complete PWA and avoids 404s on the tags.
+for (const f of ['manifest.webmanifest', 'sw.js']) {
+  if (existsSync(f)) cpSync(f, 'www/' + f);
+}
+if (!existsSync('www/icons')) mkdirSync('www/icons', { recursive: true });
+for (const f of ['icon-192.webp', 'icon-512.png', 'apple-touch-icon.png']) {
+  if (existsSync('icons/' + f)) cpSync('icons/' + f, 'www/icons/' + f);
+}
+
 console.log('Built www/ (self-contained). Rewrote', REWRITES.length, 'runtime deps to local vendor.');

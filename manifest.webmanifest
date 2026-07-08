@@ -1,0 +1,19 @@
+{
+  "id": "./",
+  "name": "SignBridge — ASL Communication",
+  "short_name": "SignBridge",
+  "description": "Recognize American Sign Language fingerspelling in real time, fully on-device. No accounts, no network, nothing recorded.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#ffffff",
+  "theme_color": "#5b4be6",
+  "categories": ["utilities", "education", "medical"],
+  "icons": [
+    { "src": "icons/icon-192.webp", "sizes": "192x192", "type": "image/webp" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "icons/apple-touch-icon.png", "sizes": "180x180", "type": "image/png" }
+  ]
+}

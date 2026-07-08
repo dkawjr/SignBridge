@@ -7,6 +7,16 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" id="themeColor" content="#FFFFFF">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-title" content="SignBridge">
+<meta name="mobile-web-app-capable" content="yes">
+<script>
+/* PWA: installable from the browser + offline. Skipped inside the native (Capacitor) app. */
+if (!window.Capacitor && 'serviceWorker' in navigator) {
+  window.addEventListener('load', function(){ navigator.serviceWorker.register('sw.js').catch(function(){}); });
+}
+</script>
 <title>SignBridge — Perioperative ASL Communication</title>
 
 <!-- TensorFlow.js (classic global script) -->
