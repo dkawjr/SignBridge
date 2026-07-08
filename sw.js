@@ -1,7 +1,8 @@
 /* SignBridge service worker — installable PWA + offline.
-   Cache-first with runtime caching so the app works with no network after first load.
+   App shell (navigations/index.html) is NETWORK-FIRST so updates reach installed users,
+   falling back to cache offline. Everything else is cache-first with runtime caching.
    (Not used inside the native app — registration is guarded by !window.Capacitor.) */
-const CACHE = 'signbridge-v2';
+const CACHE = 'signbridge-v3';
 const CORE = [
   './', './index.html', './manifest.webmanifest',
   './model/model.json', './model/weights.bin', './model/labels.json',
@@ -25,6 +26,17 @@ self.addEventListener('activate', e => {
 self.addEventListener('fetch', e => {
   const req = e.request;
   if (req.method !== 'GET') return;
+  const isShell = req.mode === 'navigate' || new URL(req.url).pathname.endsWith('/index.html');
+  if (isShell) {
+    e.respondWith(
+      fetch(req).then(res => {
+        const copy = res.clone();
+        caches.open(CACHE).then(c => c.put(req, copy)).catch(() => {});
+        return res;
+      }).catch(() => caches.match(req).then(h => h || caches.match('./index.html')))
+    );
+    return;
+  }
   e.respondWith(
     caches.match(req).then(hit => hit || fetch(req).then(res => {
       const copy = res.clone();
