@@ -2838,6 +2838,7 @@ html[data-textsize="xl"] .need-card .nc-label { font-size: 30px; }
     <div class="asl-fs-word" id="aslFsWord"></div>
     <div class="asl-fs-hint" id="aslFsHint">Fingerspelling — watch the hand</div>
     <a id="aslSignDictLink" class="asl-fs-dict" target="_blank" rel="noopener noreferrer">Watch a real signer ↗</a>
+    <button id="aslFsSwapBtn" class="asl-fs-dict" style="display:none;border:none;background:none;cursor:pointer;font:inherit;"></button>
   </div>
 
   <div class="asl-progress-wrap">
@@ -3548,15 +3549,36 @@ function showASLSign(phrase) {
   // Always offer a link out to a real signer's video (no clean-licensed clip exists to bundle).
   setSignDictLink(phrase);
 
-  // If we OWN a whole-sign clip for this phrase, play it; otherwise fall back to fingerspelling.
-  const clip = signVideoFor(phrase);
+  // If we OWN a whole-sign clip for this phrase, play it by default — but fingerspelling is
+  // never removed: it's the automatic path with no clip, and one tap away when a clip plays.
+  playPhraseVisual(phrase, false);
+}
+function playPhraseVisual(phrase, forceFingerspell) {
+  const progressBar = document.getElementById('aslProgressBar');
+  const swap = document.getElementById('aslFsSwapBtn');
+  const clip = forceFingerspell ? null : signVideoFor(phrase);
   if(clip) {
     resetSignVideo(); playSignVideo(clip);
     if(progressBar) progressBar.style.width = '100%';
+    if(swap) { swap.style.display = 'inline-flex'; swap.textContent = '🖐 Fingerspell instead'; swap.onclick = () => playPhraseVisual(phrase, true); }
   } else {
     resetSignVideo();
+    if(swap) {
+      if(signVideoFor(phrase)) { swap.style.display = 'inline-flex'; swap.textContent = '🎬 Play sign video'; swap.onclick = () => playPhraseVisual(phrase, false); }
+      else swap.style.display = 'none';
+    }
     fingerspellPhrase(phrase);
   }
+}
+// Open a sign-dictionary page: in the native app, as an IN-APP browser sheet (feels embedded,
+// legal — signasl.org blocks true iframe embedding via X-Frame-Options); on the web, a new tab.
+async function openSignPage(url) {
+  if(!url) return;
+  try {
+    const B = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Browser;
+    if(B) { await B.open({ url }); return; }
+  } catch(e) {}
+  window.open(url, '_blank', 'noopener');
 }
 
 // ===== WHOLE-SIGN CLIPS (owned/recorded) + real-signer link-out =====
@@ -3582,6 +3604,7 @@ function setSignDictLink(phrase) {
   const kw = signKeyword(phrase);
   if(!kw) { a.style.display = 'none'; return; }
   a.href = 'https://www.signasl.org/sign/' + encodeURIComponent(kw);   // free, multiple real signers per word
+  a.onclick = (e) => { if(window.Capacitor) { e.preventDefault(); openSignPage(a.href); } };   // native: in-app sheet
   a.style.display = 'inline-flex';
 }
 function playSignVideo(src) {
@@ -3690,6 +3713,7 @@ function clipLookupLinks() {
   const asl = document.getElementById('clipLookupAsl'), savvy = document.getElementById('clipLookupSavvy');
   if (asl) asl.href = 'https://www.signasl.org/sign/' + encodeURIComponent(w.replace(/\s+/g, '-'));
   if (savvy) savvy.href = 'https://www.signingsavvy.com/search/' + encodeURIComponent(w.toUpperCase());
+  for (const el of [asl, savvy]) if (el) el.onclick = (e) => { if(window.Capacitor) { e.preventDefault(); openSignPage(el.href); } };   // native: in-app sheet
 }
 async function clipImport(ev) {
   const f = ev.target.files && ev.target.files[0];
