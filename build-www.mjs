@@ -38,6 +38,9 @@ if (leftover.length) {
 }
 
 writeFileSync('www/index.html', html);
+for (const file of ['sign-videos.js', 'sign-video-player.js', 'PRIVACY.md']) cpSync(file, 'www/' + file);
+// Optional owned phrase recordings declared in sign-videos.js.
+if (existsSync('videos')) cpSync('videos', 'www/videos', { recursive: true });
 cpSync('model', 'www/model', { recursive: true });
 cpSync('vendor', 'www/vendor', { recursive: true });
 
@@ -51,4 +54,4 @@ for (const f of ['icon-192.webp', 'icon-512.png', 'apple-touch-icon.png']) {
   if (existsSync('icons/' + f)) cpSync('icons/' + f, 'www/icons/' + f);
 }
 
-console.log('Built www/ (self-contained). Rewrote', REWRITES.length, 'runtime deps to local vendor.');
+console.log('Built www/. Camera dependencies are local; optional YouTube videos require internet. Rewrote', REWRITES.length, 'runtime deps.');

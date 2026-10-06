@@ -1,7 +1,14 @@
 # SignBridge — Store privacy/questionnaire answers (copy-paste cheat sheet)
 
-Exact answers for the App Store Connect and Google Play forms. SignBridge collects **nothing**, so almost
-everything is "No / None." Answer honestly against this build; if you add analytics or accounts later, revisit.
+**Superseded for the October 6, 2026 inline-video build. Do not copy the historical answers below.**
+Online sign videos use YouTube's embedded player, which receives network/playback information.
+Third-party content is present. Voice search/captions may use a remote speech service.
+Review the current `PRIVACY.md`, final binary, provider policies, and store requirements before
+answering Apple App Privacy, Google Play Data Safety, content, age, or advertising questions.
+No new store declarations have been submitted or verified for this build.
+
+The following answers describe the earlier intended offline configuration and are retained
+as history only.
 
 ---
 ## Apple — App Store Connect

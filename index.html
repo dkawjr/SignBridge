@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="description" content="SignBridge — offline, on-device ASL fingerspelling communication for clinical care. No accounts, no network, nothing recorded.">
+<meta name="description" content="SignBridge — communication cards, on-device fingerspelling, and in-app sign videos for perioperative communication. Online videos require internet; saved clips work offline.">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" id="themeColor" content="#FFFFFF">
@@ -2024,7 +2024,34 @@ body {
 .asl-fs-word .cur { color: var(--primary); }
 .asl-fs-word .done { color: var(--text-primary); }
 .asl-fs-hint { font-size: 13px; color: var(--text-secondary); letter-spacing: 0.3px; }
-#aslSignVideo { width: min(72vw, 300px); height: min(72vw, 300px); object-fit: cover; border-radius: 24px; background: var(--bg-elevated); border: 1px solid var(--border); }
+#aslSignVideo { width: min(90vw, 560px); max-height: 42vh; object-fit: contain; border-radius: 12px; background: #000; border: 1px solid var(--border); }
+.asl-overlay { overflow-y: auto; padding: 24px 12px; justify-content: flex-start; }
+.asl-overlay:not(.active) { visibility: hidden; }
+.asl-overlay .asl-phrase-text { font-size: clamp(23px, 4vw, 34px); margin: auto 0 10px; flex-shrink: 0; }
+.asl-overlay > * { flex-shrink: 0; }
+.asl-overlay .patient-response-panel { margin-bottom: auto; }
+.asl-fs-player { width: min(100%, 600px); }
+.sign-demo { margin: 4px 0 20px; padding: 16px; background: var(--primary-light); border-radius: 12px; font-family: var(--font); }
+.sign-demo-heading { font-size: 18px; font-weight: 700; color: var(--text-primary); }
+.sign-demo p { font-size: 13px; line-height: 1.5; color: var(--text-secondary); margin: 5px 0 12px; }
+.sign-demo-words { display: flex; gap: 8px; flex-wrap: wrap; }
+.sign-demo-words button { min-height: 44px; padding: 9px 14px; background: var(--bg-elevated); border: 1px solid var(--primary-muted); color: var(--text-primary); border-radius: 8px; cursor: pointer; font: 600 15px var(--font); }
+.sign-video-options { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 16px; margin-top: 12px; font-size: 13px; color: var(--text-secondary); }
+.sign-video-options label { display: flex; align-items: center; gap: 7px; cursor: pointer; min-height: 32px; }
+.sign-video-options input { width: 18px; height: 18px; accent-color: var(--primary); }
+.sign-video-options a { color: var(--primary); }
+.cmd-video-badge { font-size: 11px; color: var(--primary); display: block; margin-top: 3px; }
+.sign-online { width: min(100%, 560px); }
+.sign-online[hidden], .sign-video-note[hidden], .sign-video-source[hidden], .sign-video-retry[hidden] { display: none !important; }
+#aslOnlineHost { width: 100%; min-height: 210px; aspect-ratio: 16 / 9; background: #000; }
+#aslOnlineHost iframe { display: block; width: 100%; height: 100%; min-height: 210px; border: 0; }
+.sign-video-note { text-align: center; font-size: 14px; line-height: 1.45; max-width: 560px; padding: 7px 12px; color: var(--text-primary); background: var(--primary-light); border-radius: 8px; }
+.sign-video-source { font-size: 12px; color: var(--text-secondary); text-align: center; }
+#aslVideoStatus { min-height: 20px; font-size: 13px; line-height: 1.4; text-align: center; color: var(--text-secondary); margin-top: 7px; }
+.sign-video-retry { display: block; margin: 8px auto; min-height: 44px; padding: 8px 16px; font: 600 14px var(--font); border: 1px solid var(--primary); border-radius: 8px; background: var(--bg-elevated); color: var(--primary); cursor: pointer; }
+.asl-fs-word { overflow-wrap: anywhere; max-width: 100%; }
+.asl-overlay .tts-btn { color: var(--text-primary); background: var(--bg-elevated); border-color: var(--border); }
+@media (max-height: 700px) { .asl-overlay { padding-top: 12px; } .asl-overlay .asl-phrase-text { margin-top: 0; } }
 .asl-hand-svg { width: min(72vw, 300px); height: min(72vw, 300px); display: flex; align-items: center; justify-content: center; background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 24px; box-shadow: 0 12px 36px rgba(15,23,42,0.10); color: var(--text-primary); }
 .asl-hand-svg svg { width: 76%; height: 76%; color: inherit; }
 .asl-fs-dict {
@@ -2322,10 +2349,10 @@ html[data-textsize="xl"] .need-card .nc-label { font-size: 30px; }
     <div class="wl-inner">
       <div class="wl-badge" aria-hidden="true">🤟</div>
       <h1 class="wl-title">Welcome to SignBridge</h1>
-      <p class="wl-sub">ASL communication for clinical care — the camera reads a patient's fingerspelling aloud, and you can speak or tap phrases shown back as signs. Private &amp; offline: nothing is recorded or sent.</p>
+      <p class="wl-sub">Communication for perioperative care. Tap a phrase to show a sign video or large text, or use the camera for on-device fingerspelling.</p>
       <button class="wl-banner" onclick="welcomeGo('receive')"><span class="wl-be" aria-hidden="true">🤟</span><span><span class="wl-bt">Just translate (ASL camera)</span><br><span class="wl-bs">Open the camera now — no setup needed.</span></span></button>
       <button class="wl-primary" onclick="welcomeGo('send')">💬 Phrases &amp; tap-to-speak</button>
-      <div class="wl-foot">🔒 Private by design — offline, nothing recorded</div>
+      <div class="wl-foot">Camera recognition stays on device. Online sign videos use YouTube.</div>
     </div>
   </div>
 
@@ -2374,9 +2401,20 @@ html[data-textsize="xl"] .need-card .nc-label { font-size: 30px; }
         <textarea id="writeInput" placeholder="Type a message to show the patient in big text…"></textarea>
         <div class="wc-row">
           <button class="primary" onclick="showBigText(document.getElementById('writeInput').value)">Show big text</button>
-          <button onclick="(function(){var v=document.getElementById('writeInput').value; if(v.trim()) showASLSign(v);})()">Fingerspell</button>
+          <button onclick="(function(){var v=document.getElementById('writeInput').value; if(v.trim()) showASLSign(v);})()">Show sign / fingerspell</button>
         </div>
       </div>
+
+      <section class="sign-demo" aria-labelledby="signDemoTitle">
+        <h2 class="sign-demo-heading" id="signDemoTitle">Tap a word. See the sign.</h2>
+        <p>Videos play here in SignBridge. These are individual word examples; save a full-phrase recording for a complete signed message.</p>
+        <div class="sign-demo-words" id="signDemoWords"></div>
+        <div class="sign-video-options">
+          <label><input type="checkbox" id="onlineSignsToggle" checked onchange="setOnlineSigns(this.checked)">Use online sign videos</label>
+          <button class="teach-btn" onclick="openPhraseRecorder()">Add a phrase video</button>
+          <a href="./PRIVACY.md" target="_blank" rel="noopener">Video privacy</a>
+        </div>
+      </section>
 
       <!-- Voice match result (appears inline when voice matched) -->
       <div class="voice-match-inline" id="voiceMatchInline">
@@ -2704,15 +2742,14 @@ html[data-textsize="xl"] .need-card .nc-label { font-size: 30px; }
             <button class="teach-toggle" id="clipToggle" onclick="toggleClipPanel()">Open</button>
           </div>
           <div class="teach-body">
-            <div class="teach-status" id="clipStatus">No clips yet — record or import a video per word.</div>
+            <div class="teach-status" id="clipStatus">No clips yet — record or import a video per word or phrase.</div>
             <div class="teach-hint">
-              Common words play a <strong>real signed video</strong> instead of fingerspelling.
-              Look the sign up online (links below), then <strong>record yourself or your interpreter</strong>
-              performing it — that clip is yours, stays on this device, and plays automatically whenever the
-              word appears in a phrase. Only import videos you have the rights to.
+              Save a <strong>full phrase</strong> such as “Take a deep breath” to play it automatically on an exact match.
+              Record with a fluent signer or import a clip you have permission to use. Saved videos stay on this device and work offline.
+              Individual word clips are identified as word examples, not sentence translations.
             </div>
             <div class="teach-row">
-              <input id="clipWord" placeholder="word, e.g. water" autocapitalize="none"
+              <input id="clipWord" placeholder="Exact phrase or word, e.g. Take a deep breath" aria-label="Exact phrase or word for this video" autocapitalize="none"
                      style="flex:1;min-width:0;padding:10px 12px;border-radius:10px;border:1px solid var(--border);background:var(--bg-elevated);color:var(--text-primary);font-size:15px;"
                      oninput="clipLookupLinks()">
             </div>
@@ -2721,7 +2758,7 @@ html[data-textsize="xl"] .need-card .nc-label { font-size: 30px; }
               <a id="clipLookupSavvy" class="teach-btn" target="_blank" rel="noopener noreferrer" style="text-decoration:none;text-align:center;">👀 SigningSavvy ↗</a>
             </div>
             <div class="teach-row">
-              <button class="teach-btn primary" id="clipRecBtn" onclick="clipRecordToggle()">⏺ Record sign (max 6s)</button>
+              <button class="teach-btn primary" id="clipRecBtn" onclick="clipRecordToggle()">⏺ Record phrase (max 20s)</button>
               <button class="teach-btn" onclick="document.getElementById('clipImportFile').click()">⬆ Import video</button>
               <input type="file" id="clipImportFile" accept="video/*" style="display:none" onchange="clipImport(event)">
             </div>
@@ -2759,7 +2796,7 @@ html[data-textsize="xl"] .need-card .nc-label { font-size: 30px; }
 <!-- ===== ASL SIGNING OVERLAY (Ghost Hands) ===== -->
 <div class="app-credit">created by D. K. Adrian Williams · <a href="https://github.com/dkawjr" target="_blank" rel="noopener noreferrer">github.com/dkawjr</a></div>
 
-<div class="asl-overlay" id="aslOverlay">
+<div class="asl-overlay" id="aslOverlay" role="dialog" aria-modal="true" aria-labelledby="aslPhraseText">
   <div class="asl-phrase-text" id="aslPhraseText"></div>
 
   <div class="ghost-hands-container">
@@ -2857,13 +2894,20 @@ html[data-textsize="xl"] .need-card .nc-label { font-size: 30px; }
   <!-- Real ASL fingerspelling player — data-derived handshapes, one per letter.
        If an owned whole-sign clip exists for the phrase it plays instead (video element). -->
   <div class="asl-fs-player" id="aslFsPlayer">
-    <video id="aslSignVideo" playsinline muted loop style="display:none;"></video>
+    <div class="sign-video-note" id="aslVideoNote" hidden></div>
+    <video id="aslSignVideo" playsinline muted controls style="display:none;" aria-label="Saved sign video"></video>
+    <div class="sign-online" id="aslOnlinePanel" hidden>
+      <div id="aslOnlineHost"></div>
+      <div id="aslVideoStatus" role="status" aria-live="polite"></div>
+      <button class="sign-video-retry" id="aslVideoRetry" hidden onclick="playPhraseVisual(currentSigningPhrase, false)">Retry video</button>
+    </div>
+    <div class="sign-video-source" id="aslVideoSource" hidden></div>
     <div id="aslHandSvg" class="asl-hand-svg"></div>
     <canvas id="aslHandCanvas" width="300" height="300" style="display:none;"></canvas>
     <div class="asl-fs-letter" id="aslFsLetter"></div>
     <div class="asl-fs-word" id="aslFsWord"></div>
     <div class="asl-fs-hint" id="aslFsHint">Fingerspelling — watch the hand</div>
-    <a id="aslSignDictLink" class="asl-fs-dict" target="_blank" rel="noopener noreferrer">Watch a real signer ↗</a>
+    <a id="aslSignDictLink" class="asl-fs-dict" target="_blank" rel="noopener noreferrer">Dictionary reference ↗</a>
     <button id="aslFsSwapBtn" class="asl-fs-dict" style="display:none;border:none;background:none;cursor:pointer;font:inherit;"></button>
   </div>
 
@@ -2958,6 +3002,8 @@ html[data-textsize="xl"] .need-card .nc-label { font-size: 30px; }
   </div>
 </div>
 
+<script src="./sign-videos.js"></script>
+<script src="./sign-video-player.js"></script>
 <script>
 // ===== STATE =====
 let recognition = null;
@@ -3134,7 +3180,7 @@ const demoSteps = [
   },
   {
     title: 'Command Library',
-    desc: 'Perioperative phrases organized by anesthesia workflow (pre-op, consent, regional, induction, awake/intra-op, recovery, pain, urgent). Tap any phrase to show its ASL fingerspelling and a link to a real signer.',
+    desc: 'Tap a word in the video row to play a real signer inside SignBridge. Phrase cards identify available word examples or saved full-phrase recordings.',
     target: '#commandGrid',
     action: () => { switchMode('send'); switchTab('commandScreen', document.querySelector('.tab')); }
   },
@@ -3146,9 +3192,9 @@ const demoSteps = [
   },
   {
     title: 'ASL Signing Overlay',
-    desc: 'When a command is selected, animated ghost hands demonstrate the approximate sign with gesture-specific shapes. The patient sees this full-screen.',
+    desc: 'Available videos open inside the patient display. Dictionary videos demonstrate individual words. Saved exact-phrase videos play first and work offline.',
     target: null,
-    action: () => { showASLSign('Take a deep breath'); }
+    action: () => { showASLSign('Are you cold?'); }
   },
   {
     title: 'Receive ASL Mode',
@@ -3158,7 +3204,7 @@ const demoSteps = [
   },
   {
     title: 'Hand Tracking Camera',
-    desc: 'Uses Google MediaPipe to track 21 hand landmarks per hand in real-time. Recognizes 26 ASL fingerspelling letters (A-Y) plus 8 medical communication gestures (Help, Yes, No, Pain, Stop, Thank You, OK, Wait). Fingerspelling auto-buffers letters into words.',
+    desc: 'The built-in model classifies 24 static fingerspelling letters. J and Z are excluded; live-camera accuracy is not established. Additional gestures require custom training.',
     target: '.patient-camera-card',
     action: () => { switchMode('receive'); }
   },
@@ -3523,12 +3569,15 @@ function getCmdIcon(cmd) {
 function cmdHTML(cmd) {
   const icon = getCmdIcon(cmd);
   const spanish = spanishTranslations[cmd] || '';
+  const visual = resolveSignVisual(cmd);
+  const videoBadge = visual ? `<span class="cmd-video-badge">${visual.scope === 'phrase' ? 'Saved phrase video' : 'Word video: ' + escapeHtml(visual.label)}</span>` : '';
 
   const spanishLine = spanish ? `<div class="cmd-spanish">${spanish}</div>` : '';
   return `<div class="cmd-btn" onclick="showASLSign('${cmd.replace(/'/g, "\\'")}')">
     <div class="cmd-icon">${icon}</div>
     <div style="flex:1;min-width:0;">
       <div class="cmd-label">${cmd}</div>
+      ${videoBadge}
       ${spanishLine}
     </div>
     <div class="cmd-arrow">→</div>
@@ -3572,25 +3621,45 @@ function showASLSign(phrase) {
 
   addLogEntry('cmd', 'Signing: ' + phrase);
 
-  // Always offer a link out to a real signer's video (no clean-licensed clip exists to bundle).
+  // External reference is optional; available videos play inside this overlay.
   setSignDictLink(phrase);
 
-  // If we OWN a whole-sign clip for this phrase, play it by default — but fingerspelling is
-  // never removed: it's the automatic path with no clip, and one tap away when a clip plays.
   playPhraseVisual(phrase, false);
 }
 function playPhraseVisual(phrase, forceFingerspell) {
   const progressBar = document.getElementById('aslProgressBar');
   const swap = document.getElementById('aslFsSwapBtn');
-  const clip = forceFingerspell ? null : signVideoFor(phrase);
+  const available = resolveSignVisual(phrase);
+  const clip = forceFingerspell ? null : available;
+  stopFingerspell();
+  resetSignVideo();
+  const note = document.getElementById('aslVideoNote');
+  note.hidden = false;
   if(clip) {
-    resetSignVideo(); playSignVideo(clip);
-    if(progressBar) progressBar.style.width = '100%';
+    note.textContent = clip.scope === 'phrase'
+      ? 'Saved recording for this exact phrase'
+      : (SignBridgeVideos.normalize(phrase).includes(' ') ? 'Word example: ' + clip.label + ' — not a translation of the whole sentence' : 'ASL word: ' + clip.label);
+    if(clip.kind === 'local') playSignVideo(clip.src);
+    else {
+      hideFingerspellVisual();
+      document.getElementById('aslFsHint').textContent = 'Online sign example';
+      const source = document.getElementById('aslVideoSource');
+      const link = document.createElement('a');
+      link.href = clip.source; link.target = '_blank'; link.rel = 'noopener noreferrer';
+      link.textContent = clip.author;
+      source.replaceChildren(link, document.createTextNode(' · YouTube · internet required'));
+      source.hidden = false;
+      SignBridgeVideoPlayer.play(clip);
+    }
+    if(progressBar) progressBar.style.width = '0%';
     if(swap) { swap.style.display = 'inline-flex'; swap.textContent = '🖐 Fingerspell instead'; swap.onclick = () => playPhraseVisual(phrase, true); }
   } else {
-    resetSignVideo();
+    const offlineExample = SignBridgeVideos.resolve(phrase, signVideos, true);
+    note.textContent = forceFingerspell ? 'English fingerspelling — not ASL sentence translation'
+      : offlineExample && !onlineSignsEnabled ? 'Online videos are off. Showing English fingerspelling.'
+      : 'No video saved for this phrase. Showing English fingerspelling.';
     if(swap) {
-      if(signVideoFor(phrase)) { swap.style.display = 'inline-flex'; swap.textContent = '🎬 Play sign video'; swap.onclick = () => playPhraseVisual(phrase, false); }
+      if(available) { swap.style.display = 'inline-flex'; swap.textContent = '🎬 Play sign video'; swap.onclick = () => playPhraseVisual(phrase, false); }
       else swap.style.display = 'none';
     }
     fingerspellPhrase(phrase);
@@ -3607,12 +3676,36 @@ async function openSignPage(url) {
   window.open(url, '_blank', 'noopener');
 }
 
-// ===== WHOLE-SIGN CLIPS (owned/recorded) + real-signer link-out =====
-// No free, cleanly-licensed ASL whole-sign video set exists to bundle, so: (1) link out to a
-// real signer's dictionary entry, and (2) play an OWNED clip here if one has been recorded.
-// To add owned clips, drop files under ./videos/ and map them here (key = lowercase phrase or
-// keyword), e.g. signVideos['pain'] = './videos/pain.webm'.
-const signVideos = {};
+// Exact owned phrase > explicit saved word alias > curated online word > fingerspelling.
+const signVideos = Object.create(null);
+let onlineSignsEnabled = true;
+try { onlineSignsEnabled = localStorage.getItem('signbridge-online-signs') !== 'off'; } catch(e) {}
+document.getElementById('onlineSignsToggle').checked = onlineSignsEnabled;
+function resolveSignVisual(phrase) { return SignBridgeVideos.resolve(phrase, signVideos, onlineSignsEnabled); }
+function setOnlineSigns(enabled) {
+  onlineSignsEnabled = !!enabled;
+  try { localStorage.setItem('signbridge-online-signs', enabled ? 'on' : 'off'); } catch(e) {}
+  filterCommands(document.getElementById('searchInput').value);
+}
+function renderSignDemo() {
+  const host = document.getElementById('signDemoWords');
+  host.replaceChildren();
+  for(const clip of SignBridgeVideos.catalog) {
+    const button = document.createElement('button');
+    button.textContent = clip.label;
+    button.onclick = () => showASLSign(clip.key.charAt(0).toUpperCase() + clip.key.slice(1));
+    host.appendChild(button);
+  }
+}
+function openPhraseRecorder() {
+  closeASLOverlay();
+  switchMode('receive');
+  document.getElementById('clinDrawer').classList.add('open');
+  document.getElementById('clipCard').classList.add('expanded');
+  document.getElementById('clipToggle').textContent = 'Close';
+  const input = document.getElementById('clipWord');
+  input.scrollIntoView({ block: 'center' }); input.focus();
+}
 const SIGN_STOPWORDS = new Set(['i','a','an','the','am','is','are','to','my','me','you','your','need','please','of','it','in','on','do','can','t','want','feel','feeling','have','this','that','some','more','little','very','now','help']);
 function signKeyword(phrase) {
   const words = String(phrase || '').toLowerCase().replace(/[^a-z\s]/g, ' ').split(/\s+/).filter(w => w && !SIGN_STOPWORDS.has(w));
@@ -3621,8 +3714,8 @@ function signKeyword(phrase) {
   return fallback[0] || '';
 }
 function signVideoFor(phrase) {
-  const p = String(phrase || '').toLowerCase().trim();
-  return signVideos[p] || signVideos[signKeyword(phrase)] || null;
+  const clip = SignBridgeVideos.resolve(phrase, signVideos, false);
+  return clip ? clip.src : null;
 }
 function setSignDictLink(phrase) {
   const a = document.getElementById('aslSignDictLink');
@@ -3633,22 +3726,28 @@ function setSignDictLink(phrase) {
   a.onclick = (e) => { if(window.Capacitor) { e.preventDefault(); openSignPage(a.href); } };   // native: in-app sheet
   a.style.display = 'inline-flex';
 }
+function hideFingerspellVisual() {
+  for(const id of ['aslHandCanvas', 'aslHandSvg', 'aslFsLetter']) document.getElementById(id).style.display = 'none';
+  document.getElementById('aslFsWord').textContent = '';
+}
 function playSignVideo(src) {
-  const v = document.getElementById('aslSignVideo'), cv = document.getElementById('aslHandCanvas'), host = document.getElementById('aslHandSvg');
-  const letterEl = document.getElementById('aslFsLetter'), wordEl = document.getElementById('aslFsWord'), hintEl = document.getElementById('aslFsHint');
-  if(cv) cv.style.display = 'none';
-  if(host) host.style.display = 'none';
-  if(letterEl) letterEl.style.display = 'none';
-  if(wordEl) wordEl.textContent = '';
-  if(hintEl) hintEl.textContent = 'Whole sign';
-  if(v) { v.src = src; v.style.display = 'block'; v.play().catch(() => {}); }
+  hideFingerspellVisual();
+  const v = document.getElementById('aslSignVideo'), hint = document.getElementById('aslFsHint');
+  hint.textContent = 'Saved video · on this device';
+  v.onerror = () => { hint.textContent = 'Saved video could not play. Use Fingerspell or import a compatible MP4.'; };
+  v.src = src; v.style.display = 'block';
+  v.play().catch(() => { if(v.getAttribute('src') === src) hint.textContent = 'Tap play on the saved video.'; });
 }
 function resetSignVideo() {
+  SignBridgeVideoPlayer.reset();
   const v = document.getElementById('aslSignVideo'), host = document.getElementById('aslHandSvg'), letterEl = document.getElementById('aslFsLetter');
-  if(v) { try { v.pause(); } catch(e) {} v.removeAttribute('src'); v.style.display = 'none'; }
+  if(v) { v.onerror = null; try { v.pause(); } catch(e) {} v.removeAttribute('src'); v.load(); v.style.display = 'none'; }
+  document.getElementById('aslVideoNote').hidden = true;
+  document.getElementById('aslVideoSource').hidden = true;
   if(host) host.style.display = 'flex';
   if(letterEl) letterEl.style.display = '';
 }
+renderSignDemo();
 
 // ===== SIGN VIDEO LIBRARY (owned clips: recorded/imported, stored on-device in IndexedDB) =====
 // Feeds the signVideos map above, so any phrase whose keyword has a clip plays the real sign
@@ -3676,7 +3775,8 @@ async function clipRemove(word) {
     tx.objectStore('clips').delete(word);
     tx.oncomplete = res; tx.onerror = () => rej(tx.error);
   });
-  if(signVideos[word]) { URL.revokeObjectURL(signVideos[word]); delete signVideos[word]; }
+  const key = SignBridgeVideos.normalize(word);
+  if(signVideos[key]) { URL.revokeObjectURL(signVideos[key]); delete signVideos[key]; }
   await loadSignClips();
 }
 function clipAll() {
@@ -3689,14 +3789,14 @@ function clipAll() {
 async function loadSignClips() {
   let rows = [];
   try { rows = await clipAll(); } catch(e) { return; }
+  for(const key of Object.keys(signVideos)) { URL.revokeObjectURL(signVideos[key]); delete signVideos[key]; }
   for (const r of rows) {
-    if (signVideos[r.word]) URL.revokeObjectURL(signVideos[r.word]);
-    signVideos[r.word] = URL.createObjectURL(r.blob);
+    signVideos[SignBridgeVideos.normalize(r.word)] = URL.createObjectURL(r.blob);
   }
   const list = document.getElementById('clipList'), status = document.getElementById('clipStatus');
   if (status) status.textContent = rows.length
-    ? rows.length + ' clip' + (rows.length > 1 ? 's' : '') + ' saved — these words play as real signs.'
-    : 'No clips yet — record or import a video per word.';
+    ? rows.length + ' clip' + (rows.length > 1 ? 's' : '') + ' saved on this device. Exact phrases play first.'
+    : 'No saved clips yet. Record or import a full phrase for offline playback.';
   if (!list) return;
   list.innerHTML = '';
   rows.sort((a, b) => a.word.localeCompare(b.word)).forEach(r => {
@@ -3711,13 +3811,22 @@ async function loadSignClips() {
     play.setAttribute('aria-label', 'Preview sign for ' + r.word);
     play.onclick = () => {
       const prev = document.getElementById('clipPreview');
-      if (prev) { prev.src = signVideos[r.word]; prev.style.display = 'block'; prev.loop = true; prev.play().catch(() => {}); }
+      if (prev) { prev.src = signVideos[SignBridgeVideos.normalize(r.word)]; prev.style.display = 'block'; prev.loop = true; prev.play().catch(() => {}); }
+    };
+    const download = document.createElement('button');
+    download.className = 'teach-btn'; download.textContent = 'Save file';
+    download.setAttribute('aria-label', 'Download saved video for ' + r.word);
+    download.onclick = () => {
+      const a = document.createElement('a');
+      a.href = signVideos[SignBridgeVideos.normalize(r.word)];
+      a.download = SignBridgeVideos.normalize(r.word).replace(/\s+/g, '-') + (r.blob.type.includes('mp4') ? '.mp4' : '.webm');
+      a.click();
     };
     const del = document.createElement('button');
     del.className = 'teach-btn danger'; del.textContent = '🗑';
     del.setAttribute('aria-label', 'Delete sign for ' + r.word);
     del.onclick = () => { if (confirm('Delete the "' + r.word + '" clip?')) clipRemove(r.word); };
-    row.append(name, play, del);
+    row.append(name, play, download, del);
     list.appendChild(row);
   });
 }
@@ -3729,7 +3838,7 @@ function toggleClipPanel() {
 }
 function clipWordVal() {
   const el = document.getElementById('clipWord');
-  return el ? el.value.toLowerCase().replace(/[^a-z\s'-]/g, '').trim() : '';
+  return el ? SignBridgeVideos.normalize(el.value) : '';
 }
 function clipLookupLinks() {
   const w = clipWordVal(), row = document.getElementById('clipLookupRow');
@@ -3745,11 +3854,12 @@ async function clipImport(ev) {
   const f = ev.target.files && ev.target.files[0];
   ev.target.value = '';
   if (!f) return;
+  if (!f.type.startsWith('video/')) { toast('Choose an MP4 or WebM video.'); return; }
   const word = clipWordVal();
   if (!word) { alert('Type the word first (e.g., water), then import its video.'); return; }
   if (f.size > 25 * 1024 * 1024) { alert('Video too large (max 25 MB). Trim it to a few seconds.'); return; }
-  await clipPut(word, f);
-  await loadSignClips();
+  try { await clipPut(word, f); await loadSignClips(); }
+  catch(e) { toast('Could not save this video. Free some device storage and try again.'); return; }
   addLogEntry('cmd', 'Sign clip imported: ' + word);
   const prev = document.getElementById('clipPreview');
   if (prev) { prev.src = signVideos[word]; prev.style.display = 'block'; prev.loop = true; prev.play().catch(() => {}); }
@@ -3772,18 +3882,19 @@ async function clipRecordToggle() {
   clipRec.onstop = async () => {
     const rec = clipRec; clipRec = null;
     clipStream.getTracks().forEach(t => t.stop()); clipStream = null;
-    if (btn) btn.textContent = '⏺ Record sign (max 6s)';
+    if (btn) btn.textContent = '⏺ Record phrase (max 20s)';
     if (prev) prev.srcObject = null;
     const blob = new Blob(clipChunks, { type: (rec && rec.mimeType) || 'video/webm' });
     if (blob.size < 2000) { if (prev) prev.style.display = 'none'; return; }   // aborted/empty
-    await clipPut(word, blob);
-    await loadSignClips();
+    try { await clipPut(word, blob); await loadSignClips(); }
+    catch(e) { toast('Could not save the recording. Check device storage.'); return; }
     addLogEntry('cmd', 'Sign clip recorded: ' + word);
     if (prev) { prev.src = signVideos[word]; prev.loop = true; prev.play().catch(() => {}); }
   };
   clipRec.start();
   if (btn) btn.textContent = '⏹ Stop & save';
-  setTimeout(() => { if (clipRec && clipRec.state === 'recording') clipRec.stop(); }, 6000);
+  const recordingSession = clipRec;
+  setTimeout(() => { if (clipRec === recordingSession && clipRec.state === 'recording') clipRec.stop(); }, 20000);
 }
 loadSignClips();   // boot: hydrate signVideos from IndexedDB
 
@@ -3795,6 +3906,7 @@ const HAND_CONNECTIONS_FS = [[0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],[5,
 let letterTemplates = null;
 let letterSVGs = null;
 let fsTimer = null;
+let fsGeneration = 0;
 
 async function loadLetterTemplates() {
   if(letterTemplates) return letterTemplates;
@@ -3891,8 +4003,10 @@ function renderFsWord(stripLetters, idx) {
 
 async function fingerspellPhrase(phrase) {
   stopFingerspell();
+  const generation = fsGeneration;
   await loadLetterSVGs();
   if(!letterSVGs || !Object.keys(letterSVGs).length) await loadLetterTemplates();  // fallback set
+  if(generation !== fsGeneration) return;
   const haveShape = (c) => (letterSVGs && letterSVGs[c]) || (letterTemplates && letterTemplates[c]);
   const letterEl = document.getElementById('aslFsLetter');
   const hintEl = document.getElementById('aslFsHint');
@@ -3911,6 +4025,7 @@ async function fingerspellPhrase(phrase) {
   let i = 0;
   const STEP = 700;
   const tick = () => {
+    if(generation !== fsGeneration) return;
     if(i >= seq.length) {
       if(letterEl) letterEl.textContent = '✓';
       if(progressBar) progressBar.style.width = '100%';
@@ -3929,6 +4044,7 @@ async function fingerspellPhrase(phrase) {
 }
 
 function stopFingerspell() {
+  fsGeneration++;
   if(fsTimer) { clearTimeout(fsTimer); fsTimer = null; }
 }
 
@@ -4001,8 +4117,9 @@ function stopGhostHandAnimation() {
 }
 
 function replayASL() {
+  const phrase = currentSigningPhrase;
   closeASLOverlay();
-  setTimeout(() => showASLSign(currentSigningPhrase), 200);
+  showASLSign(phrase);
 }
 
 function closeASLOverlay() {
@@ -5444,8 +5561,8 @@ let currentMode = 'send';
 function welcomeGo(mode) {
   const w = document.getElementById('welcomeScreen');
   if(w) w.style.display = 'none';
+  switchMode(mode === 'receive' ? 'receive' : 'send');
   if(mode === 'receive') {
-    switchMode('receive');
     // Straight into the camera — the tap on the welcome banner is the user gesture.
     try { if(typeof togglePatientCamera === 'function' && !cameraActive) togglePatientCamera(); } catch(e) {}
   }

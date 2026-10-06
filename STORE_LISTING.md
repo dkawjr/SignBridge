@@ -22,8 +22,9 @@ Point the camera at a signing hand and SignBridge reads the fingerspelled letter
 speaks them aloud. Built for moments where a deaf or non-speaking person needs to communicate and an
 interpreter isn't in the room — a clinic, a bedside, a front desk, a classroom.
 
-**Private by design.** SignBridge makes no network calls. The camera feed is processed on-device and is never
-recorded, saved, or sent anywhere. No account, no tracking, no ads.
+**On-device recognition.** The recognition camera feed is processed locally. No account is required.
+Optional online sign examples play inside the app through YouTube and require internet.
+The separate recording feature saves phrase videos on your device.
 
 Features:
 - Real-time ASL fingerspelling recognition (A–Y) with on-device hand tracking
@@ -32,9 +33,8 @@ Features:
 - Comfort mode: a reduced, extra-large layout for tired or recovering users
 - Pain scale with face anchors and a tappable body map
 - Adjustable text size, dark mode, VoiceOver-friendly labels
-- Sign Video Library: record whole-sign videos (yourself or your interpreter) so common words play as
-  real signs instead of fingerspelling — with built-in links to online ASL dictionaries to learn each sign
-- Works fully offline — nothing leaves your device
+- Sign Video Library: record or import a signed word or complete phrase and play it automatically when that text is selected. Available online word examples play inside the app with source attribution.
+- Saved phrase recordings and communication cards work offline; online sign examples need internet
 - Optional: teach it your own hand shapes, stored only on your device
 
 SignBridge is an assistive communication aid, not a medical device, and is not a substitute for a qualified

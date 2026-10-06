@@ -1,35 +1,46 @@
-# SignBridge — Privacy Policy
+# SignBridge privacy policy
 
-_Last updated: 2026-07-03_
+Updated October 6, 2026
 
-SignBridge is designed to protect your privacy completely.
+SignBridge has no account system or developer-operated analytics service. Camera recognition
+and saved sign recordings run on your device. Optional online features contact other services.
 
-## The short version
-**SignBridge collects nothing, stores nothing off your device, and sends nothing over the internet.**
+## Camera and saved recordings
 
-## Camera
-SignBridge uses your device's camera to recognize American Sign Language fingerspelling in real time. The
-video is processed **entirely on your device** by an on-device machine-learning model. The camera feed is
-**never recorded, never saved, and never transmitted** to us or to anyone else. When you close the camera, the
-feed ends.
+The recognition camera is processed on device. SignBridge does not upload its frames.
+The separate **Record phrase** button deliberately records a sign video when you choose it.
+Imported and recorded clips, custom training samples, and preferences are stored locally.
+You can delete clips in the library or clear the app's site data. **Save file** downloads a
+recording to your device; it does not publish it.
 
-## Data we collect
-**None.** SignBridge has no accounts, no login, no analytics, no advertising, and no tracking. It makes no
-network connections in normal use. Any settings, optional custom gestures, or sign videos you record or import
-are stored **only in your device's local browser storage** and never leave your device. You can clear them at
-any time from within the app or your device settings.
+## Online sign videos
 
-The app offers optional links to third-party ASL dictionary websites (e.g., SignASL.org). These open in your
-browser; visiting them is subject to those sites' own privacy policies. The app itself sends them nothing.
+When online videos are enabled and you select a supported word or phrase, SignBridge loads
+YouTube's embedded player in the app. The catalog contains fixed video IDs; matching happens
+on device. SignBridge does not send your typed message, session log, camera feed, or saved
+recordings to YouTube as a search query.
 
-## Data we share
-**None.** Because we collect no data, there is nothing to share or sell.
+YouTube receives network and playback information, including your IP address and the selected
+video. Its privacy-enhanced player is still an online third-party service. Google's
+[privacy policy](https://policies.google.com/privacy) and
+[YouTube terms](https://www.youtube.com/t/terms) apply. SignBridge preserves the provider's
+player controls and branding. Online videos are not downloaded or cached by SignBridge.
 
-## Children's privacy
-SignBridge collects no personal information from anyone, including children.
+Turn off **Use online sign videos** to prevent these players from loading on subsequent
+selections. Saved recordings and fingerspelling remain available.
 
-## Changes
-If this policy ever changes, the updated version will be posted here with a new "last updated" date.
+## Other optional network features
 
-## Contact
-Questions: github.com/dkawjr/SignBridge
+Dictionary references open external websites under those sites' privacy policies.
+Voice search and live captions use the device/browser speech-recognition service, which may
+process audio remotely. Enable those features only if that service suits your setting.
+The web version fetches its app files and recognition dependencies over the network; the native
+package bundles the recognition dependencies. A downloaded app or cached webpage is distinct
+from an online video, which still requires connectivity.
+
+## Local information and contact
+
+The app maintains an in-session activity log. Exporting a log or recording creates a file you
+control. SignBridge does not automatically send those files to the developer.
+
+Questions: [SignBridge repository](https://github.com/dkawjr/SignBridge).

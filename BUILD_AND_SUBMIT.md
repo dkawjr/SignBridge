@@ -1,5 +1,11 @@
 # SignBridge — Build & Submit Runbook (iOS + Android)
 
+> October 6, 2026 inline-video update: `npm run build:www` includes the new video catalog
+> and player. Use the web/PWA build for the first demo. Online videos stream through YouTube;
+> saved/packaged recordings are the offline path. The historical store-review text below
+> predates online playback and must not be pasted into a submission. Use the current
+> `PRIVACY.md` and `PRIVACY_ANSWERS.md`, and verify native playback on physical devices first.
+
 This turns the SignBridge web app into installable App Store / Google Play apps. The hard part (offline
 bundling, native scaffolding, permissions, icons) is **already done and committed on the `native-app`
 branch**. This doc is the remaining, mostly-mechanical path to the stores. **The iOS half must run on a Mac;**
@@ -9,8 +15,8 @@ Android can run on Mac or Windows.
 
 ## 0. What's already set up (don't redo)
 - **Capacitor** project wrapping the web app for iOS + Android. App ID: `com.dkawjr.signbridge`.
-- **Fully offline**: TensorFlow.js, MediaPipe (JS + WASM), and the hand-landmark model are vendored under
-  `vendor/` and loaded locally — the app makes **zero network calls** at runtime. (Verified in a browser:
+- **Recognition dependencies are offline**: TensorFlow.js, MediaPipe (JS + WASM), and the hand-landmark model are vendored under
+  `vendor/` and loaded locally. Online sign videos separately require internet. (Earlier browser check:
   TF.js 4.22, MediaPipe HandLandmarker, and the fingerspelling model all load from local files.)
 - **Camera permission** wired: Android `CAMERA` in the manifest; iOS `NSCameraUsageDescription` in Info.plist.
 - **App icon + splash** generated for every size on both platforms (ASL "I love you" 🤟 mark). Replace later
@@ -66,7 +72,7 @@ In Xcode:
 **App Privacy answers (iOS "nutrition label"):** Data collection = **None**. Everything is processed
 on-device; nothing is recorded, stored off-device, or transmitted. (The camera feed never leaves the phone.)
 
-**Review notes to paste (heads off rejections):**
+**Historical review notes (do not paste for the inline-video build):**
 > SignBridge is a fully offline accessibility/communication tool: on-device ASL fingerspelling recognition
 > (TensorFlow.js + MediaPipe running locally in the app's WebView) with text-to-speech output. It is not a
 > medical device and makes no diagnostic or treatment claims.
